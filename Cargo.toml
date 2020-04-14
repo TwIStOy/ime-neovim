@@ -1,0 +1,15 @@
+[package]
+name = "ime-neovim"
+version = "0.1.0"
+authors = ["Hawtian Wang <twistoy.wang@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "ime"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ime"
+path = "src/bin/main.rs"
+
+[dependencies]
