@@ -3,35 +3,38 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fmt;
+use std::hash::Hash;
 use std::rc::Rc;
 
+type NodePtr<KeyType, T> = Rc<RefCell<_Node<KeyType, T>>>;
+
 #[derive(Debug)]
-pub struct _Node<T> {
-  children: HashMap<char, Rc<RefCell<_Node<T>>>>,
+pub struct _Node<KeyType: Hash + Eq + Clone, T> {
+  children: HashMap<KeyType, NodePtr<KeyType, T>>,
   values: Vec<T>,
 }
 
-impl<T> _Node<T> {
+impl<KeyType: Hash + Eq + Clone, T> _Node<KeyType, T> {
   pub fn push(&mut self, value: T) {
     self.values.push(value)
   }
 
-  pub fn child(&mut self, key: char) -> Rc<RefCell<_Node<T>>> {
-    self
-      .children
-      .entry(key)
-      .or_insert(Rc::new(RefCell::new(_Node {
-        children: HashMap::new(),
-        values: Vec::new(),
-      })))
-      .clone()
+  pub fn child(&mut self, key: &KeyType) -> NodePtr<KeyType, T> {
+    match self.children.get_mut(key) {
+      Some(c) => c.clone(),
+      None => {
+        let c = Rc::new(RefCell::new(_Node {
+          children: HashMap::new(),
+          values: Vec::new(),
+        }));
+        self.children.insert(key.clone(), c.clone());
+        c
+      }
+    }
   }
 }
 
-impl<T> _Node<T>
-where
-  T: fmt::Display,
-{
+impl<KeyType: Hash + Eq + Clone + fmt::Display, T: fmt::Display> _Node<KeyType, T> {
   pub fn print_tree(
     &self,
     codes: String,
@@ -83,12 +86,12 @@ where
 }
 
 #[derive(Debug)]
-pub struct Trie<T> {
-  root: Rc<RefCell<_Node<T>>>,
+pub struct Trie<K: Hash + Eq + Clone, T> {
+  root: NodePtr<K, T>,
 }
 
-impl<T> Trie<T> {
-  pub fn create() -> Trie<T> {
+impl<K: Hash + Eq + Clone, T> Trie<K, T> {
+  pub fn create() -> Trie<K, T> {
     Trie {
       root: Rc::new(RefCell::new(_Node {
         children: HashMap::new(),
@@ -97,18 +100,9 @@ impl<T> Trie<T> {
     }
   }
 
-  pub fn insert(&mut self, pattern: String, value: T) {
-    let mut cur = self.root.clone();
-    for ch in pattern.chars() {
-      let tmp = cur.borrow_mut().child(ch);
-      cur = tmp;
-    }
-    cur.borrow_mut().push(value);
-  }
-
-  pub fn bfs(&self, root: Rc<RefCell<_Node<T>>>) -> Vec<Rc<RefCell<_Node<T>>>> {
-    let mut res: Vec<Rc<RefCell<_Node<T>>>> = Vec::new();
-    let mut queue: VecDeque<Rc<RefCell<_Node<T>>>> = VecDeque::new();
+  pub fn bfs(&self, root: NodePtr<K, T>) -> Vec<NodePtr<K, T>> {
+    let mut res: Vec<NodePtr<K, T>> = Vec::new();
+    let mut queue: VecDeque<NodePtr<K, T>> = VecDeque::new();
     queue.push_front(root);
 
     while !queue.is_empty() {
@@ -131,7 +125,7 @@ impl<T> Trie<T> {
   }
 }
 
-impl<T> Trie<T>
+impl<K: Hash + Eq + Clone + fmt::Display, T> Trie<K, T>
 where
   T: fmt::Display,
 {
@@ -145,5 +139,19 @@ where
       .print_tree(String::new(), TreeDepth::root(), true, &mut tree, &mut res);
 
     res
+  }
+}
+
+impl<'a, K: Hash + Eq + Clone + 'a, T> Trie<K, T> {
+  pub fn insert<I>(&mut self, pattern: I, value: T)
+  where
+    I: Iterator<Item = &'a K>,
+  {
+    let mut cur = self.root.clone();
+    for ch in pattern {
+      let tmp = cur.borrow_mut().child(&ch);
+      cur = tmp;
+    }
+    cur.borrow_mut().push(value);
   }
 }

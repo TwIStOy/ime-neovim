@@ -1,17 +1,30 @@
 use crate::engine::candidate::Candidate;
-use crate::data::trie::Trie;
 
-pub struct IMEngine {
-  codes: Trie<String>,
+static mut ContextIdx: u32 = 0;
+
+pub struct ContextId {
+  id: u32,
 }
 
-impl IMEngine {
-  pub fn feed(ch: char) -> Vec<Candidate> {
-
-    vec![]
+impl ContextId {
+  pub unsafe fn new() -> ContextId {
+    ContextIdx += 1;
+    ContextId { id: ContextIdx }
   }
 
-  pub fn add_code(&mut self, codes: String, text: String) {
-    self.codes.insert(codes, text);
+  pub fn id(&self) -> u32 {
+    self.id
   }
+}
+
+pub trait InputContext {
+  fn feed(&mut self, ch: char) -> Vec<Candidate>;
+
+  fn backspace(&mut self);
+}
+
+pub trait IMEngine {
+  fn start_context(&mut self) -> dyn InputContext;
+
+  fn cancel(&mut self);
 }

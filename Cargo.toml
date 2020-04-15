@@ -13,3 +13,7 @@ name = "ime"
 path = "src/bin/main.rs"
 
 [dependencies]
+plist = "*"
+serde = { version = "*", features = ["derive"] }
+dirs = "2.0"
+
