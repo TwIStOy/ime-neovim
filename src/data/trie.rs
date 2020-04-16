@@ -53,7 +53,7 @@ impl<K: Hash + Eq, V> Trie<K, V> {
     }
   }
 
-  pub fn bfs(&self, root: TrieNodePtr<K, V>) -> Vec<TrieNodePtr<K, V>> {
+  pub fn bfs(root: TrieNodePtr<K, V>) -> Vec<TrieNodePtr<K, V>> {
     let mut res: Vec<TrieNodePtr<K, V>> = Vec::new();
     let mut queue: VecDeque<TrieNodePtr<K, V>> = VecDeque::new();
     queue.push_front(root);

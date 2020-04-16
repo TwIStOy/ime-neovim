@@ -13,11 +13,27 @@ pub struct Candidate {
 }
 
 impl Candidate {
-  pub fn new(text: String) -> Candidate {
+  pub fn prefect(text: String) -> Candidate {
     Candidate {
       remain_codes: Vec::new(),
       text: text,
       match_type: MatchType::PerfectMatch,
+    }
+  }
+
+  pub fn prefix(text: String, remain: Vec<char>) -> Candidate {
+    Candidate {
+      remain_codes: remain,
+      text: text,
+      match_type: MatchType::PrefixMatch,
+    }
+  }
+
+  pub fn new(text: String, remain_codes: Vec<char>) -> Candidate {
+    if remain_codes.len() == 0 {
+      Candidate::prefect(text)
+    } else {
+      Candidate::prefix(text, remain_codes)
     }
   }
 

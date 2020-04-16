@@ -1,11 +1,11 @@
 use crate::data::trie::Trie;
 use crate::engine::base::IFilter;
 use crate::engine::candidate::Candidate;
-use crate::engine::codetable::input_context::CodeTableContext;
+use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{ContextId, IMEngine, InputContext};
 
 struct CodeTable {
-  table: Trie<char, String>,
+  table: Trie<char, ResultText>,
 }
 
 impl IMEngine for CodeTable {
