@@ -3,8 +3,10 @@ use crate::engine::base::IFilter;
 use crate::engine::candidate::Candidate;
 use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{ContextId, IMEngine, InputContext};
+use std::io::{BufReader, BufRead};
+use std::fs::File;
 
-struct CodeTable {
+pub struct CodeTable {
   table: Trie<char, ResultText>,
 }
 
@@ -15,14 +17,39 @@ impl IMEngine for CodeTable {
   }
 }
 
-// impl IMEngine for CodeTable {
-//   fn feed(&mut self, ch: char) -> Vec<Candidate> {
-//     // todo
+impl CodeTable {
+  pub fn table_file(filename: &String) -> CodeTable {
+    let mut code_table = CodeTable {
+      table: Trie::new()
+    };
 
-//     vec![]
-//   }
+    let mut filepath = dirs::home_dir().unwrap();
+    filepath.push(".local");
+    filepath.push("share");
+    filepath.push("ime-neovim");
+    filepath.push("codetable");
+    filepath.push(filename);
 
-//   fn reset(&mut self) {
-//     // todo
-//   }
-// }
+    let reader = BufReader::new(File::open(filepath).unwrap());
+
+    for l in reader.lines() {
+      if let Ok(line) = l {
+        let v: Vec<&str> = line.trim().split('\t').collect();
+        let priority;
+        if v.len() == 2 {
+          priority = 100;
+          // panic!("line should be splited into two parts, but got {}", v.len());
+        } else {
+          priority = v[2].parse::<u32>().unwrap();
+        }
+
+        code_table.table.insert(v[1].chars().collect::<Vec<char>>().iter(), ResultText {
+          text: v[0].to_string(),
+          priority: priority,
+        });
+      }
+    }
+
+    code_table
+  }
+}

@@ -1,5 +1,8 @@
 use ime::data::trie::Trie;
 use ime::engine::keymap::KeyMap;
+use ime::engine::codetable::code_table::CodeTable;
+use ime::engine::engine::IMEngine;
+use ime::engine::candidate::Candidate;
 
 fn main() {
   {
@@ -33,4 +36,12 @@ fn main() {
 
   println!("{:?}", KeyMap::available_keymaps());
   println!("{:?}", KeyMap::load("小鹤双拼.plist"));
+
+  let mut codetable = CodeTable::table_file(&"小鹤音形.txt".to_string());
+  let mut ctx = codetable.start_context();
+
+  ctx.feed('x');
+  for candidate in ctx.feed('x') {
+    println!("{:?}", candidate);
+  }
 }

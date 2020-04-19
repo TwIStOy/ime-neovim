@@ -1,4 +1,4 @@
-use crate::data::trie::{Trie, TrieNodePtr};
+use crate::data::trie::{Trie, TrieNodePtr, TrieNode};
 use crate::engine::candidate::Candidate;
 use crate::engine::engine::{ContextId, InputContext};
 use std::cmp;
@@ -6,8 +6,8 @@ use std::collections::{LinkedList, VecDeque};
 use std::rc::Rc;
 
 pub struct ResultText {
-  text: String,
-  priority: u32,
+  pub text: String,
+  pub priority: u32,
 }
 
 type NodeType = TrieNodePtr<char, ResultText>;
@@ -56,7 +56,7 @@ impl cmp::PartialOrd for FlattenItem {
     if self.depth != rhs.depth {
       self.depth.partial_cmp(&rhs.depth)
     } else {
-      self.priority.partial_cmp(&rhs.priority)
+      rhs.priority.partial_cmp(&self.priority)
     }
   }
 }
@@ -116,6 +116,8 @@ impl CodeTableContext {
 impl InputContext for CodeTableContext {
   fn feed(&mut self, ch: char) -> Vec<Candidate> {
     self.input_sequence.push(ch);
+
+    self.current = TrieNode::<char, ResultText>::child(&self.current, &ch);
 
     let mut candidates = self.generate_candidates();
     candidates.sort();
