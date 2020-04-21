@@ -1,11 +1,13 @@
-#[derive(Debug)]
+use serde::Serialize;
+
+#[derive(Debug, Serialize)]
 pub enum MatchType {
   PerfectMatch,
   PrefixMatch,
   FuzzyMatch,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Candidate {
   remain_codes: Vec<char>,
   text: String,

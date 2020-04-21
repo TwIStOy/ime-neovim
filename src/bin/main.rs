@@ -1,8 +1,9 @@
 use ime::data::trie::Trie;
-use ime::engine::keymap::KeyMap;
+use ime::engine::candidate::Candidate;
 use ime::engine::codetable::code_table::CodeTable;
 use ime::engine::engine::IMEngine;
-use ime::engine::candidate::Candidate;
+use ime::engine::keymap::KeyMap;
+use serde_json;
 
 fn main() {
   {
@@ -41,7 +42,5 @@ fn main() {
   let mut ctx = codetable.start_context();
 
   ctx.feed('x');
-  for candidate in ctx.feed('x') {
-    println!("{:?}", candidate);
-  }
+  println!("{}", serde_json::to_string(&ctx.feed('x')).unwrap());
 }
