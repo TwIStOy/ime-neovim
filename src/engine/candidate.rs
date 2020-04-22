@@ -1,3 +1,5 @@
+use rmpv::Value;
+use rmpv::ValueRef;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -9,9 +11,9 @@ pub enum MatchType {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Candidate {
-  remain_codes: Vec<char>,
-  text: String,
-  match_type: MatchType,
+  pub remain_codes: Vec<char>,
+  pub text: String,
+  pub match_type: MatchType,
 }
 
 impl Candidate {
@@ -48,5 +50,39 @@ impl Candidate {
     }
 
     res
+  }
+}
+
+impl From<Candidate> for Value {
+  fn from(v: Candidate) -> Self {
+    Value::from(vec![
+      (Value::from("text"), Value::from(v.text)),
+      (
+        Value::from("remain"),
+        Value::from(
+          v.remain_codes
+            .iter()
+            .map(|x| Value::from(x.to_string()))
+            .collect::<Vec<Value>>(),
+        ),
+      ),
+    ])
+  }
+}
+
+impl<'a> From<&'a Candidate> for Value {
+  fn from(v: &'a Candidate) -> Self {
+    Value::from(vec![
+      (Value::from("text"), Value::from(v.text.clone())),
+      (
+        Value::from("remain"),
+        Value::from(
+          v.remain_codes
+            .iter()
+            .map(|x| Value::from(x.to_string()))
+            .collect::<Vec<Value>>(),
+        ),
+      ),
+    ])
   }
 }

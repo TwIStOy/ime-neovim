@@ -13,7 +13,7 @@ use log4rs::{
 
 fn main() -> Result<(), SetLoggerError> {
   let level = log::LevelFilter::Info;
-  let file_path = "/Users/twistoy/.cache/log/ime-neovim.log";
+  let file_path = "/Users/hawtianwang/.cache/log/ime-neovim.log";
 
   // Logging to log file.
   let logfile = FileAppender::builder()
@@ -39,9 +39,9 @@ fn main() -> Result<(), SetLoggerError> {
   // once you are done.
   let _handle = log4rs::init_config(config)?;
 
-  let mut conn = Connector::new();
+  let conn = Connector::new();
 
-  conn.borrow().recv();
+  conn.recv();
 
   // {
   //   let mut tr = Trie::<char, String>::new();

@@ -4,7 +4,7 @@ if !exists('s:ime_job_id')
 endif
 
 " The path to the binary that was created out of 'cargo build' or 'cargo build --release". This will generally be 'target/release/name'
-let s:bin = '/Users/twistoy/vim_plugin/ime-neovim/target/debug/ime'
+let s:bin = '/Users/hawtianwang/Projects/ime-neovim/target/debug/ime'
 
 function! s:init_rpc() abort
   if s:ime_job_id == 0
@@ -27,8 +27,58 @@ function! s:connect() abort
   endif
 endfunction
 
+function! s:uuid() abort
+  if executable('uuidgen')
+    return system('uuidgen')[:-2]
+  else
+python << endpy
+import vim
+from uuid import uuid4
+vim.command("let l:new_uuid = '%s'"% str(uuid4()))
+endpy
+    return l:new_uuid
+  endif
+endfunction
+
+let s:context_id = get(s:, 'context_id', '')
+
 function! IMEStartContext() abort
-  call rpcrequest(s:ime_job_id, 'start_context', 'abcd')
+  if s:context_id != ''
+    call IMECancel()
+  endif
+
+  let s:context_id = s:uuid()
+  call rpcrequest(s:ime_job_id, 'start_context', s:context_id)
+endfunction
+
+function! IMEInput(ch) abort
+  if s:context_id == ''
+    echo 'should start first'
+    return ''
+  endif
+
+  let candidates = rpcrequest(s:ime_job_id, 'input_char', s:context_id, a:ch)
+  echo candidates
+endfunction
+
+function! IMEBackspace() abort
+  if s:context_id == ''
+    echo 'should start first'
+    return ''
+  endif
+
+  let candidates = rpcrequest(s:ime_job_id, 'backspace', s:context_id)
+  echo candidates
+endfunction
+
+function! IMECancel(ch) abort
+  if s:context_id == ''
+    echo 'should start first'
+    return ''
+  endif
+
+  call rpcrequest(s:ime_job_id, 'cancel', s:context_id)
+  let s:context_id = ''
 endfunction
 
 call s:connect()

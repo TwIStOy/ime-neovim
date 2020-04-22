@@ -1,6 +1,7 @@
-use crate::data::trie::{Trie, TrieNodePtr, TrieNode};
+use crate::data::trie::{Trie, TrieNode, TrieNodePtr};
 use crate::engine::candidate::Candidate;
 use crate::engine::engine::{ContextId, InputContext};
+use log::info;
 use std::cmp;
 use std::collections::{LinkedList, VecDeque};
 use std::rc::Rc;
@@ -15,6 +16,7 @@ pub struct CodeTableContext {
   id: ContextId,
   current: NodeType,
   input_sequence: Vec<char>,
+  overflow_number: u32,
 }
 
 impl CodeTableContext {
@@ -23,6 +25,7 @@ impl CodeTableContext {
       id: ContextId::new(),
       current: node,
       input_sequence: Vec::new(),
+      overflow_number: 0,
     }
   }
 }
@@ -71,6 +74,10 @@ impl cmp::Ord for FlattenItem {
 
 impl CodeTableContext {
   fn generate_candidates(&mut self) -> Vec<FlattenItem> {
+    if self.input_sequence.len() == 0 {
+      return vec![];
+    }
+
     let mut res: Vec<FlattenItem> = Vec::new();
 
     let mut queue: LinkedList<QueueItem> = LinkedList::new();
@@ -117,29 +124,80 @@ impl InputContext for CodeTableContext {
   fn feed(&mut self, ch: char) -> Vec<Candidate> {
     self.input_sequence.push(ch);
 
-    self.current = TrieNode::<char, ResultText>::child(&self.current, &ch);
+    if self.overflow_number > 0 {
+      self.overflow_number += 1
+    } else {
+      self.current = match TrieNode::<char, ResultText>::const_child(&self.current, &ch) {
+        Some(child) => child,
+        None => {
+          self.overflow_number += 1;
 
-    let mut candidates = self.generate_candidates();
-    candidates.sort();
-
-    candidates
-      .iter()
-      .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
-      .collect()
-  }
-
-  fn backspace(&mut self) {
-    let mut father: Option<NodeType> = None;
-
-    match self.current.borrow().father.upgrade() {
-      Some(f) => {
-        father = Some(f.clone());
-      }
-      None => {}
+          self.current.clone()
+        }
+      };
     }
 
-    if let Some(father) = father {
-      self.current = father;
+    info!(
+      "feed {}, input_seq: {:?}, overflow: {}",
+      ch, self.input_sequence, self.overflow_number
+    );
+
+    if self.overflow_number > 0 {
+      vec![]
+    } else {
+      let mut candidates = self.generate_candidates();
+      candidates.sort();
+
+      candidates
+        .iter()
+        .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
+        .collect()
+    }
+  }
+
+  fn backspace(&mut self) -> (bool, Vec<Candidate>) {
+    self.input_sequence.pop();
+    
+    if self.input_sequence.len() == 0 {
+      return (false, vec![])
+    }
+
+    let mut this_round = false;
+    if self.overflow_number > 0 {
+      self.overflow_number -= 1;
+      this_round = true;
+    }
+
+    info!(
+      "backspace, input_seq: {:?}, overflow: {}",
+      self.input_sequence, self.overflow_number
+    );
+
+    if self.overflow_number == 0 {
+      if !this_round {
+        let mut father: Option<NodeType> = None;
+
+        match self.current.borrow().father.upgrade() {
+          Some(f) => {
+            father = Some(f.clone());
+          }
+          None => return (true, vec![]),
+        }
+
+        if let Some(father) = father {
+          self.current = father;
+        }
+      }
+
+      let mut candidates = self.generate_candidates();
+      candidates.sort();
+
+      (true, candidates
+        .iter()
+        .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
+        .collect())
+    } else {
+      (true, vec![])
     }
   }
 

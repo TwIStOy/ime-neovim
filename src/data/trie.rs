@@ -40,6 +40,11 @@ impl<K: Hash + Eq + Clone, V> TrieNode<K, V> {
       }
     }
   }
+
+  pub fn const_child(this: &Rc<RefCell<Self>>, key: &K) -> Option<Rc<RefCell<Self>>> {
+    let mut this_ref = this.borrow_mut();
+    Some(this_ref.children.get_mut(key)?.clone())
+  }
 }
 
 impl<K: Hash + Eq, V> Trie<K, V> {

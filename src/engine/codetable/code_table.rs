@@ -5,23 +5,24 @@ use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{ContextId, IMEngine, InputContext};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub struct CodeTable {
-  table: Arc<Mutex<Trie<char, ResultText>>>,
+  table: Trie<char, ResultText>,
 }
 
 impl IMEngine for CodeTable {
-  fn start_context(&mut self) -> Box<dyn InputContext> {
+  fn start_context(&self) -> Rc<RefCell<dyn InputContext>> {
     // todo
-    Box::new(CodeTableContext::new(self.table.lock().unwrap().root()))
+    Rc::new(RefCell::new(CodeTableContext::new(self.table.root())))
   }
 }
 
 impl CodeTable {
   pub fn table_file(filename: &String) -> CodeTable {
     let mut code_table = CodeTable {
-      table: Arc::new(Mutex::new(Trie::new())),
+      table: Trie::new(),
     };
 
     let mut filepath = dirs::home_dir().unwrap();
@@ -45,7 +46,7 @@ impl CodeTable {
           priority = v[2].parse::<u32>().unwrap();
         }
 
-        code_table.table.lock().unwrap().insert(
+        code_table.table.insert(
           v[1].chars().collect::<Vec<char>>().iter(),
           ResultText {
             text: v[0].to_string(),
