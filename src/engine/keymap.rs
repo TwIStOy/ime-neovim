@@ -1,8 +1,9 @@
+use crate::path::LocalDataPath;
 use dirs;
 use plist;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::{env, fs, path};
+use std::fs;
 
 type KeyCodeTranslateDict = HashMap<char, String>;
 type KeyCodeTranslation = HashMap<char, Vec<String>>;
@@ -39,12 +40,7 @@ impl KeyMap {
   }
 
   pub fn load(filename: &str) -> KeyMap {
-    let mut filepath = dirs::home_dir().unwrap();
-    filepath.push(".local");
-    filepath.push("share");
-    filepath.push("ime-neovim");
-    filepath.push("keymap");
-    filepath.push(filename);
+    let filepath = LocalDataPath::new().sub("keymap").file(filename);
 
     let keymap: KeyMapProtocol = plist::from_file(filepath.as_path()).expect("parse plist failed");
 

@@ -1,7 +1,9 @@
 pub mod data;
 pub mod engine;
 pub mod output;
+pub mod path;
 pub mod vim;
+pub mod utility;
 
 extern crate dirs;
 extern crate log;

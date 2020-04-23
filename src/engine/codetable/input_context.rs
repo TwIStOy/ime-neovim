@@ -1,10 +1,9 @@
-use crate::data::trie::{Trie, TrieNode, TrieNodePtr};
+use crate::data::trie::{TrieNode, TrieNodePtr};
 use crate::engine::candidate::Candidate;
-use crate::engine::engine::{ContextId, InputContext};
+use crate::engine::engine::{BackspaceResult, ContextId, InputContext};
 use log::info;
 use std::cmp;
-use std::collections::{LinkedList, VecDeque};
-use std::rc::Rc;
+use std::collections::LinkedList;
 
 pub struct ResultText {
   pub text: String,
@@ -34,7 +33,6 @@ struct QueueItem {
   node: NodeType,
   depth: usize,
   codes: Vec<char>,
-  priority: u32,
 }
 
 #[derive(Debug)]
@@ -85,7 +83,6 @@ impl CodeTableContext {
       node: self.current.clone(),
       depth: 0,
       codes: Vec::new(),
-      priority: 10,
     });
 
     while queue.len() > 0 {
@@ -110,7 +107,6 @@ impl CodeTableContext {
             node: child.clone(),
             depth: front.depth + 1,
             codes: codes,
-            priority: 1,
           });
         }
       }
@@ -155,11 +151,10 @@ impl InputContext for CodeTableContext {
     }
   }
 
-  fn backspace(&mut self) -> (bool, Vec<Candidate>) {
+  fn backspace(&mut self) -> BackspaceResult {
     self.input_sequence.pop();
-    
     if self.input_sequence.len() == 0 {
-      return (false, vec![])
+      return BackspaceResult::Cancel;
     }
 
     let mut this_round = false;
@@ -175,13 +170,13 @@ impl InputContext for CodeTableContext {
 
     if self.overflow_number == 0 {
       if !this_round {
-        let mut father: Option<NodeType> = None;
+        let father: Option<NodeType>;
 
         match self.current.borrow().father.upgrade() {
           Some(f) => {
             father = Some(f.clone());
           }
-          None => return (true, vec![]),
+          None => return BackspaceResult::Candidates(vec![]),
         }
 
         if let Some(father) = father {
@@ -192,12 +187,14 @@ impl InputContext for CodeTableContext {
       let mut candidates = self.generate_candidates();
       candidates.sort();
 
-      (true, candidates
-        .iter()
-        .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
-        .collect())
+      BackspaceResult::Candidates(
+        candidates
+          .iter()
+          .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
+          .collect(),
+      )
     } else {
-      (true, vec![])
+      BackspaceResult::Candidates(vec![])
     }
   }
 

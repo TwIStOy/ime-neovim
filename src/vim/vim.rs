@@ -3,7 +3,7 @@ use log::info;
 use rmpv::Value;
 use std::collections::HashMap;
 use std::io;
-use std::io::{BufReader, BufWriter, Read, Stdin, Stdout, Write};
+use std::io::{BufReader, BufWriter, Stdin, Stdout};
 
 pub trait MethodHandler {
   fn handle(&mut self, args: Vec<Value>) -> Result<Value, Value>;
@@ -49,7 +49,6 @@ impl Vim {
 
       match self.emit(msg) {
         Some(response) => {
-          info!("msg: {:?}", response);
           model::encode(&mut self.writer, response);
         }
         None => {}

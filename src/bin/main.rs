@@ -13,7 +13,7 @@ use log4rs::{
 
 fn main() -> Result<(), SetLoggerError> {
   let level = log::LevelFilter::Info;
-  let file_path = "/Users/hawtianwang/.cache/log/ime-neovim.log";
+  let file_path = "/Users/twistoy/.cache/log/ime-neovim.log";
 
   // Logging to log file.
   let logfile = FileAppender::builder()

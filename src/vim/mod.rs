@@ -1,4 +1,4 @@
 pub mod connector;
-mod handler;
+mod handlers;
 mod model;
 mod vim;

@@ -4,7 +4,7 @@ if !exists('s:ime_job_id')
 endif
 
 " The path to the binary that was created out of 'cargo build' or 'cargo build --release". This will generally be 'target/release/name'
-let s:bin = '/Users/hawtianwang/Projects/ime-neovim/target/debug/ime'
+let s:bin = '/Users/twistoy/vim_plugin/ime-neovim/target/debug/ime'
 
 function! s:init_rpc() abort
   if s:ime_job_id == 0

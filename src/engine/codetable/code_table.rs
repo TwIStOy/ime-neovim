@@ -1,12 +1,11 @@
 use crate::data::trie::Trie;
-use crate::engine::base::IFilter;
 use crate::engine::candidate::Candidate;
 use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{ContextId, IMEngine, InputContext};
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::rc::Rc;
-use std::cell::RefCell;
 
 pub struct CodeTable {
   table: Trie<char, ResultText>,
@@ -21,9 +20,7 @@ impl IMEngine for CodeTable {
 
 impl CodeTable {
   pub fn table_file(filename: &String) -> CodeTable {
-    let mut code_table = CodeTable {
-      table: Trie::new(),
-    };
+    let mut code_table = CodeTable { table: Trie::new() };
 
     let mut filepath = dirs::home_dir().unwrap();
     filepath.push(".local");

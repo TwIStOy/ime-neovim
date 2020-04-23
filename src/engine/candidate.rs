@@ -1,8 +1,7 @@
 use rmpv::Value;
-use rmpv::ValueRef;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum MatchType {
   PerfectMatch,
   PrefixMatch,
@@ -53,6 +52,16 @@ impl Candidate {
   }
 }
 
+impl From<MatchType> for Value {
+  fn from(v: MatchType) -> Self {
+    match v {
+      MatchType::PerfectMatch => Value::from("perfect"),
+      MatchType::PrefixMatch => Value::from("prefix"),
+      MatchType::FuzzyMatch => Value::from("fuzzy"),
+    }
+  }
+}
+
 impl From<Candidate> for Value {
   fn from(v: Candidate) -> Self {
     Value::from(vec![
@@ -66,6 +75,7 @@ impl From<Candidate> for Value {
             .collect::<Vec<Value>>(),
         ),
       ),
+      (Value::from("match"), Value::from(v.match_type)),
     ])
   }
 }
@@ -83,6 +93,7 @@ impl<'a> From<&'a Candidate> for Value {
             .collect::<Vec<Value>>(),
         ),
       ),
+      (Value::from("match"), Value::from(v.match_type)),
     ])
   }
 }
