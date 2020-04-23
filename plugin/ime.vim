@@ -19,7 +19,7 @@ function! s:connect() abort
   let id = s:init_rpc()
 
   if id == 0
-    echerr 'fuck...'
+    echoerr 'fuck...'
   elseif id == -1
   echoerr 'fuck...'
   else

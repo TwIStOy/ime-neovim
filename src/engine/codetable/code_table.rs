@@ -1,7 +1,6 @@
 use crate::data::trie::Trie;
-use crate::engine::candidate::Candidate;
 use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
-use crate::engine::engine::{ContextId, IMEngine, InputContext};
+use crate::engine::engine::{IMEngine, InputContext};
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
