@@ -37,11 +37,16 @@ impl PluginManager {
       .to_hyphenated()
       .to_string();
 
-    self
-      .contexts
-      .insert(uuid, self.engine.lock().start_context_async());
+    match self.engine.lock() {
+      Ok(engine) => {
+        self
+          .contexts
+          .insert(uuid.clone(), engine.start_context_async());
 
-    Ok(Value::from(uuid))
+        Ok(Value::from(uuid))
+      }
+      Err(_) => Err(Value::from("failed to start context...")),
+    }
   }
 }
 
