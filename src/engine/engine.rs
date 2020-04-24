@@ -27,7 +27,7 @@ pub enum BackspaceResult {
   Cancel,
 }
 
-pub trait InputContext {
+pub trait InputContext: Send {
   fn feed(&mut self, ch: char) -> Vec<Candidate>;
 
   fn backspace(&mut self) -> BackspaceResult;
@@ -35,6 +35,6 @@ pub trait InputContext {
   fn id(&self) -> ContextId;
 }
 
-pub trait IMEngine {
+pub trait IMEngine: Send {
   fn start_context(&self) -> Rc<RefCell<dyn InputContext>>;
 }

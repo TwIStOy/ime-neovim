@@ -1,13 +1,14 @@
-use crate::data::trie::Trie;
+use crate::data::PersistentTrie;
 use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{IMEngine, InputContext};
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::rc::Rc;
+use crate::path::LocalDataPath;
 
 pub struct CodeTable {
-  table: Trie<char, ResultText>,
+  table: PersistentTrie<char, ResultText>,
 }
 
 impl IMEngine for CodeTable {
@@ -19,14 +20,8 @@ impl IMEngine for CodeTable {
 
 impl CodeTable {
   pub fn table_file(filename: &String) -> CodeTable {
-    let mut code_table = CodeTable { table: Trie::new() };
-
-    let mut filepath = dirs::home_dir().unwrap();
-    filepath.push(".local");
-    filepath.push("share");
-    filepath.push("ime-neovim");
-    filepath.push("codetable");
-    filepath.push(filename);
+    let mut code_table = CodeTable { table: PersistentTrie::new() };
+    let filepath = LocalDataPath::new().sub("codetable").file(filename);
 
     let reader = BufReader::new(File::open(filepath).unwrap());
 

@@ -1,16 +1,17 @@
-use crate::data::trie::{TrieNode, TrieNodePtr};
+use crate::data::{PersistentNode};
 use crate::engine::candidate::Candidate;
 use crate::engine::engine::{BackspaceResult, ContextId, InputContext};
 use log::info;
 use std::cmp;
 use std::collections::LinkedList;
+use std::sync::Arc;
 
 pub struct ResultText {
   pub text: String,
   pub priority: u32,
 }
 
-type NodeType = TrieNodePtr<char, ResultText>;
+type NodeType = Arc<PersistentNode<char, ResultText>>;
 pub struct CodeTableContext {
   id: ContextId,
   current: NodeType,
@@ -90,7 +91,7 @@ impl CodeTableContext {
       if let Some(front) = item.as_mut() {
         let front_codes = front.codes.clone();
 
-        for text in &front.node.borrow().values {
+        for text in &front.node.values {
           res.push(FlattenItem {
             text: text.text.clone(),
             depth: front.depth,
@@ -99,7 +100,7 @@ impl CodeTableContext {
           });
         }
 
-        for (ch, child) in &front.node.borrow().children {
+        for (ch, child) in &front.node.children {
           let mut codes = front_codes.clone();
           codes.push(*ch);
 
@@ -123,7 +124,7 @@ impl InputContext for CodeTableContext {
     if self.overflow_number > 0 {
       self.overflow_number += 1
     } else {
-      self.current = match TrieNode::<char, ResultText>::const_child(&self.current, &ch) {
+      self.current = match self.current.child(&ch) {
         Some(child) => child,
         None => {
           self.overflow_number += 1;
@@ -172,7 +173,7 @@ impl InputContext for CodeTableContext {
       if !this_round {
         let father: Option<NodeType>;
 
-        match self.current.borrow().father.upgrade() {
+        match self.current.father.upgrade() {
           Some(f) => {
             father = Some(f.clone());
           }
