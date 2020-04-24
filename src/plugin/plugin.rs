@@ -1,14 +1,17 @@
+use crate::engine::{IMEngine, InputContext};
 use async_std;
 use async_std::io::Stdout;
 use async_trait::async_trait;
 use nvim_rs::{Handler as NeovimHandler, Neovim};
 use rmpv::Value;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::engine::IMEngine;
+use uuid::Uuid;
 
 #[derive(Clone)]
 struct PluginManager {
   engine: Arc<Mutex<dyn IMEngine>>,
+  contexts: HashMap<String, Arc<Mutex<dyn InputContext>>>,
 }
 
 #[async_trait]
@@ -17,42 +20,32 @@ impl NeovimHandler for PluginManager {
 
   async fn handle_request(
     &self,
-    _name: String,
-    _args: Vec<Value>,
-    _neovim: Neovim<Self::Writer>,
+    name: String,
+    args: Vec<Value>,
+    neovim: Neovim<Self::Writer>,
   ) -> Result<Value, Value> {
-    Ok(Value::from("v: bool"))
+    match name.as_ref() {
+      "start_context" => self.start_context(args, neovim).await,
+      _ => Ok(Value::from("v: bool")),
+    }
+  }
+}
+
+impl PluginManager {
+  async fn start_context(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    let uuid = Uuid::new_v5(&Uuid::NAMESPACE_DNS, "IME-NEOVIM".as_bytes())
+      .to_hyphenated()
+      .to_string();
+
+    self
+      .contexts
+      .insert(uuid, self.engine.lock().start_context_async());
+
+    Ok(Value::from(uuid))
   }
 }
 
 /*
-
-use std::error::Error;
-
-use async_trait::async_trait;
-
-use rmpv::Value;
-
-use async_std::io::Stdout;
-use async_std;
-
-use nvim_rs::{
-  create::async_std as create, Handler, Neovim,
-};
-
-#[derive(Clone)]
-struct NeovimHandler{}
-
-#[async_trait]
-impl Handler for NeovimHandler {
-  type Writer =Stdout;
-
-  async fn handle_request(
-    &self,
-    name: String,
-    _args: Vec<Value>,
-    neovim: Neovim<Stdout>,
-  ) -> Result<Value, Value> {
     match name.as_ref() {
       "file" => {
         let c = neovim.get_current_buf().await.unwrap();

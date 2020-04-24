@@ -1,6 +1,7 @@
 use crate::engine::candidate::Candidate;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 static mut _CONTEXT_IDX: u32 = 0;
 
@@ -37,4 +38,6 @@ pub trait InputContext: Send {
 
 pub trait IMEngine: Send {
   fn start_context(&self) -> Rc<RefCell<dyn InputContext>>;
+
+  fn start_context_async(&self) -> Arc<Mutex<dyn InputContext>>;
 }

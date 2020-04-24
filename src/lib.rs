@@ -14,3 +14,4 @@ extern crate nvim_rs;
 extern crate plist;
 extern crate rmpv;
 extern crate serde;
+extern crate uuid;
