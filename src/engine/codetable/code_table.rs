@@ -1,11 +1,12 @@
 use crate::data::PersistentTrie;
 use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{IMEngine, InputContext};
+use crate::path::LocalDataPath;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::rc::Rc;
-use crate::path::LocalDataPath;
+use std::sync::{Arc, Mutex};
 
 pub struct CodeTable {
   table: PersistentTrie<char, ResultText>,
@@ -16,11 +17,18 @@ impl IMEngine for CodeTable {
     // todo
     Rc::new(RefCell::new(CodeTableContext::new(self.table.root())))
   }
+
+  fn start_context_async(&self) -> Arc<Mutex<dyn InputContext>> {
+    // todo
+    Arc::new(Mutex::new(CodeTableContext::new(self.table.root())))
+  }
 }
 
 impl CodeTable {
   pub fn table_file(filename: &String) -> CodeTable {
-    let mut code_table = CodeTable { table: PersistentTrie::new() };
+    let mut code_table = CodeTable {
+      table: PersistentTrie::new(),
+    };
     let filepath = LocalDataPath::new().sub("codetable").file(filename);
 
     let reader = BufReader::new(File::open(filepath).unwrap());

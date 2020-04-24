@@ -4,6 +4,7 @@ use async_std::io::Stdout;
 use async_trait::async_trait;
 use nvim_rs::{Handler as NeovimHandler, Neovim};
 use rmpv::Value;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -11,7 +12,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 struct PluginManager {
   engine: Arc<Mutex<dyn IMEngine>>,
-  contexts: HashMap<String, Arc<Mutex<dyn InputContext>>>,
+  contexts: Arc<Mutex<HashMap<String, Arc<Mutex<dyn InputContext>>>>>,
 }
 
 #[async_trait]
@@ -37,15 +38,22 @@ impl PluginManager {
       .to_hyphenated()
       .to_string();
 
+    let mut context: Result<Arc<Mutex<dyn InputContext>>, Value> =
+      Err(Value::from("failed to start context..."));
     match self.engine.lock() {
       Ok(engine) => {
-        self
-          .contexts
-          .insert(uuid.clone(), engine.start_context_async());
+        context = Ok(engine.start_context_async());
+      }
+      Err(_) => return Err(Value::from("failed to start context...")),
+    }
+
+    match self.contexts.lock() {
+      Ok(mut mp) => {
+        mp.insert(uuid.clone(), context?);
 
         Ok(Value::from(uuid))
       }
-      Err(_) => Err(Value::from("failed to start context...")),
+      Err(_) => return Err(Value::from("failed to start context...")),
     }
   }
 }
