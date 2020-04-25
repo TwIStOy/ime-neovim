@@ -1,18 +1,49 @@
-use crate::engine::{IMEngine, InputContext};
+use super::context_box::ContextBox;
+use crate::engine::{Candidate, IMEngine, InputContext};
 use async_std;
 use async_std::io::Stdout;
 use async_trait::async_trait;
 use nvim_rs::{Handler as NeovimHandler, Neovim};
 use rmpv::Value;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 #[derive(Clone)]
-struct PluginManager {
+pub struct PluginManager {
   engine: Arc<Mutex<dyn IMEngine>>,
   contexts: Arc<Mutex<HashMap<String, Arc<Mutex<dyn InputContext>>>>>,
+  buffer_box: Arc<Mutex<HashMap<u32, Arc<Mutex<ContextBox>>>>>,
+}
+
+#[macro_export]
+macro_rules! make_args {
+    () => (Vec::new());
+    ($($e:expr), +, ) => (make_args![$($e),*]);
+    ($($e:expr), +) => {{
+      let mut vec = Vec::new();
+      $(
+        vec.push(Value::from($e));
+      )*
+      vec
+    }}
+}
+
+#[macro_export]
+macro_rules! vim_dict {
+  () => {
+    Vec::new()
+  };
+  ($($key:expr => $value:expr,)+) => {
+    vim_dict!($($key => $value),+)
+  };
+  ($($key:expr => $value:expr),*) => {{
+    let mut _res = Vec::<(Value, Value)>::new();
+    $(
+      _res.push((Value::from($key), Value::from($value)));
+    )*
+    _res
+  }}
 }
 
 #[async_trait]
@@ -33,13 +64,16 @@ impl NeovimHandler for PluginManager {
 }
 
 impl PluginManager {
-  async fn start_context(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+  async fn start_context(
+    &self,
+    _args: Vec<Value>,
+    _neovim: Neovim<Stdout>,
+  ) -> Result<Value, Value> {
     let uuid = Uuid::new_v5(&Uuid::NAMESPACE_DNS, "IME-NEOVIM".as_bytes())
       .to_hyphenated()
       .to_string();
 
-    let mut context: Result<Arc<Mutex<dyn InputContext>>, Value> =
-      Err(Value::from("failed to start context..."));
+    let context: Result<Arc<Mutex<dyn InputContext>>, Value>;
     match self.engine.lock() {
       Ok(engine) => {
         context = Ok(engine.start_context_async());
@@ -54,6 +88,35 @@ impl PluginManager {
         Ok(Value::from(uuid))
       }
       Err(_) => return Err(Value::from("failed to start context...")),
+    }
+  }
+
+  fn _input_char_impl(&self, args: Vec<Value>) -> Result<Vec<Candidate>, Value> {
+    if args.len() < 2 {
+      Err(Value::from("expect args but not found"))
+    } else {
+      let ctx_id = args[0]
+        .as_str()
+        .ok_or_else(|| Value::from("first parameter should be str"))?;
+      let ch = args[1]
+        .as_str()
+        .ok_or_else(|| Value::from("second parameter should be char"))?;
+      if ch.len() < 1 {
+        return Err(Value::from("expect char"));
+      }
+
+      Ok(
+        self
+          .contexts
+          .lock()
+          .or_else(|_| Err(Value::from("lock failed")))?
+          .get_mut(ctx_id)
+          .ok_or_else(|| Value::from("context not exists"))?
+          .clone()
+          .lock()
+          .or_else(|_| Err(Value::from("failed to lock input_context")))?
+          .feed(ch.chars().next().unwrap()),
+      )
     }
   }
 }

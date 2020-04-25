@@ -12,6 +12,7 @@ use log4rs::{
 };
 
 fn main() -> Result<(), SetLoggerError> {
+  // println!("{}", "啊啊啊".chars().count());
   let level = log::LevelFilter::Info;
   let file_path = "/Users/twistoy/.cache/log/ime-neovim.log";
 

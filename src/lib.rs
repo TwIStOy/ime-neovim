@@ -2,6 +2,7 @@ pub mod data;
 pub mod engine;
 pub mod output;
 pub mod path;
+#[macro_use]
 pub mod plugin;
 pub mod utility;
 pub mod vim;
