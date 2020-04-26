@@ -292,4 +292,7 @@ impl PluginManager {
 
     Ok(Value::from("ok"))
   }
+
+  // todo(hawtian): impl this
+  async fn register_events() -> Result<Value, Value> {}
 }
