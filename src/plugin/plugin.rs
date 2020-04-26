@@ -156,8 +156,9 @@ impl PluginManager {
         info!("buf box found!");
 
         let mut buf_box = _buf_box.lock().await;
-        buf_box.next_page();
-        buf_box.render(&neovim).await?;
+        if buf_box.next_page() {
+          buf_box.render(&neovim).await?;
+        }
       }
       None => {}
     }
@@ -177,8 +178,9 @@ impl PluginManager {
         info!("buf box found!");
 
         let mut buf_box = _buf_box.lock().await;
-        buf_box.previous_page();
-        buf_box.render(&neovim).await?;
+        if buf_box.previous_page() {
+          buf_box.render(&neovim).await?;
+        }
       }
       None => {}
     }
@@ -212,11 +214,11 @@ impl PluginManager {
           .render_new_buffer_box(bufnr, candidates, codes, &neovim)
           .await
       }
-      BackspaceResult::Cancel => Err(Value::from("not impl")),
+      BackspaceResult::Cancel => self.cancel(args, neovim).await,
     }
   }
 
-  async fn cancel(&self, args: Vec<Value>, _neovim: Neovim<Stdout>) -> Result<Value, Value> {
+  async fn cancel(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
     if args.len() < 2 {
       return Err(Value::from("expect at least 2 arguments."));
     }
@@ -229,9 +231,44 @@ impl PluginManager {
       .ok_or_else(|| Value::from("second parameter should be int"))?;
 
     self.contexts.lock().await.remove(ctx_id);
-    self.buffer_box.lock().await.remove(&bufnr);
+    if let Some(buf_box) = self.buffer_box.lock().await.remove(&bufnr) {
+      buf_box.lock().await.close(&neovim).await?;
+    }
 
-    Ok(Value::from("ok"))
+    Ok(Value::from("canceled "))
+  }
+
+  async fn confirm(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    if args.len() < 3 {
+      return Err(Value::from("expect at least 3 arguments"));
+    }
+
+    let ctx_id = args[0]
+      .as_str()
+      .ok_or_else(|| Value::from("first parameter should be str"))?;
+    let idx = args[1]
+      .as_i64()
+      .ok_or_else(|| Value::from("second parameter should be int"))?;
+    let bufnr = args[2]
+      .as_i64()
+      .ok_or_else(|| Value::from("third parameter should be int"))?;
+
+    match self.buffer_box.lock().await.get(&bufnr) {
+      Some(_buf_box) => {
+        info!("buf box found!");
+
+        let buf_box = _buf_box.lock().await;
+        if let Some(txt) = buf_box.confirm(idx) {
+          // if ok, cancel it
+          self.cancel(make_args![ctx_id, bufnr], neovim).await;
+
+          Ok(Value::from(txt))
+        } else {
+          Err(Value::from("index out of range"))
+        }
+      }
+      None => Err(Value::from("no buffer box")),
+    }
   }
 
   async fn render_new_buffer_box(

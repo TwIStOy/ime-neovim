@@ -56,6 +56,8 @@ impl CodeTable {
       }
     }
 
+    code_table.table.maintain();
+
     code_table
   }
 }

@@ -6,6 +6,7 @@ use std::cmp;
 use std::collections::LinkedList;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub struct ResultText {
   pub text: String,
   pub priority: u32,
@@ -176,15 +177,19 @@ impl InputContext for CodeTableContext {
       if !this_round {
         let father: Option<NodeType>;
 
-        match self.current.father.upgrade() {
-          Some(f) => {
-            father = Some(f.clone());
+        if self.current.father.is_some() {
+          match self.current.father.as_ref().unwrap().upgrade() {
+            Some(f) => {
+              father = Some(f.clone());
+            }
+            None => return BackspaceResult::Candidates(vec![], self.codes()),
           }
-          None => return BackspaceResult::Candidates(vec![], self.codes()),
-        }
 
-        if let Some(father) = father {
-          self.current = father;
+          if let Some(father) = father {
+            self.current = father;
+          }
+        } else {
+          return BackspaceResult::Candidates(vec![], self.codes());
         }
       }
 

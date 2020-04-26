@@ -1,10 +1,12 @@
+use log::info;
 use std::collections::{HashMap, LinkedList};
+use std::fmt::Debug;
 use std::hash::Hash;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Mutex, Weak};
 
 #[derive(Debug)]
 pub struct PersistentNode<K: Hash + Eq + Clone, V> {
-  pub father: Weak<Self>,
+  pub father: Option<Weak<Self>>,
   pub children: HashMap<K, Arc<Self>>,
   pub values: Vec<Arc<V>>,
 }
@@ -22,7 +24,7 @@ impl<K: Hash + Eq + Clone, V> Clone for PersistentNode<K, V> {
 impl<K: Hash + Eq + Clone, V> PersistentNode<K, V> {
   pub fn new() -> Self {
     PersistentNode {
-      father: Weak::default(),
+      father: None,
       children: HashMap::new(),
       values: Vec::new(),
     }
@@ -48,21 +50,6 @@ impl<K: Hash + Eq + Clone, V> PersistentNode<K, V> {
     }
   }
 
-  pub fn maintain(&self, father: Option<*const Self>) -> Arc<Self> {
-    let mut this = self.clone();
-    match father {
-      Some(f) => {
-        this.father = unsafe { Arc::downgrade(&Arc::from_raw(f)) };
-      }
-      None => {}
-    }
-    this.children.clear();
-
-    for child in &self.children {}
-
-    Arc::new(this)
-  }
-
   // bfs
   pub fn flatten(self: &Arc<Self>) -> Vec<Arc<Self>> {
     let mut res: Vec<Arc<Self>> = Vec::new();
@@ -83,6 +70,19 @@ impl<K: Hash + Eq + Clone, V> PersistentNode<K, V> {
     }
 
     res
+  }
+}
+
+impl<K: Hash + Eq + Clone + Debug, V: Debug> PersistentNode<K, V> {
+  pub fn maintain(self: Arc<Self>, father: Option<Weak<Self>>) {
+    unsafe {
+      let mut tmp = self.clone();
+      (*Arc::get_mut_unchecked(&mut tmp)).father = father;
+    }
+
+    for (_, child) in &self.children {
+      child.clone().maintain(Some(Arc::downgrade(&self)));
+    }
   }
 }
 
@@ -127,11 +127,12 @@ impl<K: Hash + Eq + Clone, V> PersistentTrie<K, V> {
   pub fn root(&self) -> Arc<PersistentNode<K, V>> {
     self.root.clone()
   }
+}
 
-  pub fn maintain(&self) -> Self {
-    PersistentTrie {
-      root: self.root.maintain(None),
-    }
+impl<K: Hash + Eq + Clone + Debug, V: Debug> PersistentTrie<K, V> {
+  pub fn maintain(&mut self) {
+    // Arc::get_mut(&mut self.root).unwrap().maintain(None);
+    self.root().maintain(None);
   }
 }
 

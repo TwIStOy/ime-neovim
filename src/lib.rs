@@ -1,3 +1,5 @@
+#![feature(get_mut_unchecked)]
+
 pub mod data;
 pub mod engine;
 pub mod output;

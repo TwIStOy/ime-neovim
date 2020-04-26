@@ -133,33 +133,15 @@ impl ContextBox {
     }
   }
 
-  // pub fn box_width(&self) -> usize {
-  //   let mut width: usize = 0;
+  pub fn confirm(&self, idx: i64) -> Option<String> {
+    let candidates = self.candidate_slice();
+    if candidates.len() >= idx as usize {
+      Some(candidates[idx as usize - 1].text.clone())
+    } else {
+      None
+    }
+  }
 
-  //   // codes will be rendered into "hao'tian"
-  //   width = max(
-  //     self.codes.iter().map(|x| x.len()).sum::<usize>() + (self.codes.len() - 1),
-  //     width,
-  //   );
-
-  //   if self.candidates.len() > 0 {
-  //     let candidates_in_page = self.candidate_slice();
-  //     width = max(
-  //       width,
-  //       // candidate text
-  //       candidates_in_page
-  //       .iter()
-  //       .map(|x| x.text.chars().count() * 2 + x.remain_codes.len())
-  //       .sum::<usize>()
-  //       // seperator
-  //       + (candidates_in_page.len() - 1)
-  //       // number, eg: 1.
-  //       + candidates_in_page.len() * 2,
-  //     );
-  //   }
-
-  //   width
-  // }
   async fn create_floating_window(&mut self, neovim: &Neovim<Stdout>) -> Result<(), Value> {
     info!("create floating window");
 

@@ -1,26 +1,21 @@
 use async_std;
 use async_std::sync::Mutex;
 use ime::engine::codetable::code_table::CodeTable;
+use ime::path::LocalDataPath;
 use ime::plugin::PluginManager;
-use ime::vim::connector::Connector;
-use log::{error, info, warn, LevelFilter, SetLoggerError};
+use log::{error, info, LevelFilter, SetLoggerError};
 use log4rs;
 use log4rs::{
-  append::{
-    console::{ConsoleAppender, Target},
-    file::FileAppender,
-  },
+  append::file::FileAppender,
   config::{Appender, Config, Root},
   encode::pattern::PatternEncoder,
-  filter::threshold::ThresholdFilter,
 };
 use nvim_rs::create::async_std as create;
 use std::sync::Arc;
 
 #[async_std::main]
 async fn main() -> Result<(), SetLoggerError> {
-  // println!("{}", "啊啊啊".chars().count());
-  let file_path = "/Users/twistoy/.cache/log/ime-neovim.log";
+  let file_path = LocalDataPath::new().sub("log").file("ime-neovim.log");
 
   // Logging to log file.
   let logfile = FileAppender::builder()
@@ -28,7 +23,7 @@ async fn main() -> Result<(), SetLoggerError> {
     .encoder(Box::new(PatternEncoder::new(
       "{l}[{T}:{I}] [{M}:{L}] {m}\n",
     )))
-    .build(file_path)
+    .build(file_path.as_path())
     .unwrap();
 
   // Log Trace level output to file where trace is the default level
@@ -48,7 +43,11 @@ async fn main() -> Result<(), SetLoggerError> {
   // once you are done.
   let _handle = log4rs::init_config(config)?;
 
+  info!("ime-neovim start...");
+
   let handler = PluginManager::new(Arc::new(Mutex::new(CodeTable::table_file("小鹤音形.txt"))));
+
+  info!("init PluginManager success");
   let (nvim, io_handler) = create::new_parent(handler).await;
 
   match io_handler.await {
