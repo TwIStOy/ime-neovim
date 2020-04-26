@@ -93,3 +93,5 @@
 " endfunction
 
 inoremap <C-I><C-I> <C-o>:call ime#interp()<CR>
+" lnoremap <buffer><expr>x ime#feed(char2nr('x'))
+inoremap x <C-o>:call ime#feed('x')<CR>
