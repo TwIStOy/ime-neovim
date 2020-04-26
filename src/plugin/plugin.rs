@@ -1,5 +1,5 @@
 use super::context_box::ContextBox;
-use crate::engine::{Candidate, IMEngine, InputContext};
+use crate::engine::{BackspaceResult, Candidate, IMEngine, InputContext};
 use async_std;
 use async_std::io::Stdout;
 use async_std::sync::Mutex;
@@ -61,7 +61,11 @@ impl NeovimHandler for PluginManager {
     match name.as_ref() {
       "start_context" => self.start_context(args, neovim).await,
       "input_char" => self.input_char(args, neovim).await,
-      _ => Ok(Value::from("v: bool")),
+      "next_page" => self.next_page(args, neovim).await,
+      "previous_page" => self.previous_page(args, neovim).await,
+      "backspace" => self.backspace(args, neovim).await,
+      "cancel" => self.cancel(args, neovim).await,
+      _ => Err(Value::from(format!("no method named: '{}'", name))),
     }
   }
 }
@@ -98,18 +102,10 @@ impl PluginManager {
       "construct ctx_box with candidates: {:?}, codes: {:?}, bufnr: {}",
       candidates, codes, bufnr
     );
-    let ctx_box = Arc::new(Mutex::new(ContextBox::new(codes, candidates)));
-    match self.buffer_box.lock().await.get(&bufnr) {
-      Some(old) => {
-        info!("old buffer box found. close it!");
-        old.lock().await.close(&_neovim).await?;
-      }
-      None => {}
-    }
-    self.buffer_box.lock().await.insert(bufnr, ctx_box.clone());
 
-    ctx_box.clone().lock().await.render(&_neovim).await?;
-    Ok(Value::from("ok"))
+    self
+      .render_new_buffer_box(bufnr, candidates, codes, &_neovim)
+      .await
   }
 
   async fn _input_char_impl(
@@ -146,5 +142,117 @@ impl PluginManager {
         bufnr,
       ))
     }
+  }
+
+  async fn next_page(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    if args.len() < 1 {
+      return Err(Value::from("expect at least 1 argument"));
+    }
+    let bufnr = args[0]
+      .as_i64()
+      .ok_or_else(|| Value::from("third parameter should be int"))?;
+    match self.buffer_box.lock().await.get(&bufnr) {
+      Some(_buf_box) => {
+        info!("buf box found!");
+
+        let mut buf_box = _buf_box.lock().await;
+        buf_box.next_page();
+        buf_box.render(&neovim).await?;
+      }
+      None => {}
+    }
+
+    Ok(Value::from("ok"))
+  }
+
+  async fn previous_page(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    if args.len() < 1 {
+      return Err(Value::from("expect at least 1 argument"));
+    }
+    let bufnr = args[0]
+      .as_i64()
+      .ok_or_else(|| Value::from("third parameter should be int"))?;
+    match self.buffer_box.lock().await.get(&bufnr) {
+      Some(_buf_box) => {
+        info!("buf box found!");
+
+        let mut buf_box = _buf_box.lock().await;
+        buf_box.previous_page();
+        buf_box.render(&neovim).await?;
+      }
+      None => {}
+    }
+
+    Ok(Value::from("ok"))
+  }
+
+  async fn backspace(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    if args.len() < 2 {
+      return Err(Value::from("expect at least 2 arguments."));
+    }
+
+    let ctx_id = args[0]
+      .as_str()
+      .ok_or_else(|| Value::from("first parameter should be str"))?;
+    let bufnr = args[1]
+      .as_i64()
+      .ok_or_else(|| Value::from("second parameter should be int"))?;
+
+    let ctx = self
+      .contexts
+      .lock()
+      .await
+      .get_mut(ctx_id)
+      .ok_or_else(|| Value::from("context not exists"))?
+      .clone();
+
+    match ctx.clone().lock().await.backspace() {
+      BackspaceResult::Candidates(candidates, codes) => {
+        self
+          .render_new_buffer_box(bufnr, candidates, codes, &neovim)
+          .await
+      }
+      BackspaceResult::Cancel => Err(Value::from("not impl")),
+    }
+  }
+
+  async fn cancel(&self, args: Vec<Value>, _neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    if args.len() < 2 {
+      return Err(Value::from("expect at least 2 arguments."));
+    }
+
+    let ctx_id = args[0]
+      .as_str()
+      .ok_or_else(|| Value::from("first parameter should be str"))?;
+    let bufnr = args[1]
+      .as_i64()
+      .ok_or_else(|| Value::from("second parameter should be int"))?;
+
+    self.contexts.lock().await.remove(ctx_id);
+    self.buffer_box.lock().await.remove(&bufnr);
+
+    Ok(Value::from("ok"))
+  }
+
+  async fn render_new_buffer_box(
+    &self,
+    bufnr: i64,
+    candidates: Vec<Candidate>,
+    codes: Vec<String>,
+    neovim: &Neovim<Stdout>,
+  ) -> Result<Value, Value> {
+    let ctx_box = Arc::new(Mutex::new(ContextBox::new(codes, candidates)));
+    match self.buffer_box.lock().await.get(&bufnr) {
+      Some(old) => {
+        info!("old buffer box found. close it!");
+        old.lock().await.close(&neovim).await?;
+      }
+      None => {}
+    }
+    self.buffer_box.lock().await.insert(bufnr, ctx_box.clone());
+
+    ctx_box.clone().lock().await.render(&neovim).await?;
+
+    Ok(Value::from("ok"))
   }
 }

@@ -24,8 +24,9 @@ impl ContextId {
   }
 }
 
+#[derive(Debug)]
 pub enum BackspaceResult {
-  Candidates(Vec<Candidate>),
+  Candidates(Vec<Candidate>, Vec<String>),
   Cancel,
 }
 

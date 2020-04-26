@@ -68,7 +68,7 @@ function! IMEBackspace() abort
     return ''
   endif
 
-  let candidates = rpcrequest(s:ime_job_id, 'backspace', s:context_id)
+  let candidates = rpcrequest(s:ime_job_id, 'backspace', s:context_id, bufnr('%'))
   echo candidates
 endfunction
 
@@ -78,8 +78,15 @@ function! IMECancel(ch) abort
     return ''
   endif
 
-  call rpcrequest(s:ime_job_id, 'cancel', s:context_id)
+  call rpcrequest(s:ime_job_id, 'cancel', s:context_id, bufnr('%'))
   let s:context_id = ''
 endfunction
 
 call s:connect()
+
+function! IMETest() abort
+  call IMEStartContext()
+  call IMEInput('x')
+  call IMEInput('x')
+  call IMEBackspace()
+endfunction

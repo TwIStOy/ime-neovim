@@ -15,7 +15,7 @@ impl MethodHandler for BackspaceHandler {
         match self.connector.backspace(s.to_string()) {
           Some(result) => {
             match result {
-              BackspaceResult::Candidates(candidates) => {
+              BackspaceResult::Candidates(candidates, _codes) => {
                 Ok(Value::from(vec![
                   // todo(hawtian): split char sets
                   (Value::from("char_sets"), Value::from(Vec::<Value>::new())),

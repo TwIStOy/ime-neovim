@@ -48,6 +48,21 @@ impl<K: Hash + Eq + Clone, V> PersistentNode<K, V> {
     }
   }
 
+  pub fn maintain(&self, father: Option<*const Self>) -> Arc<Self> {
+    let mut this = self.clone();
+    match father {
+      Some(f) => {
+        this.father = unsafe { Arc::downgrade(&Arc::from_raw(f)) };
+      }
+      None => {}
+    }
+    this.children.clear();
+
+    for child in &self.children {}
+
+    Arc::new(this)
+  }
+
   // bfs
   pub fn flatten(self: &Arc<Self>) -> Vec<Arc<Self>> {
     let mut res: Vec<Arc<Self>> = Vec::new();
@@ -111,6 +126,12 @@ impl<K: Hash + Eq + Clone, V> PersistentTrie<K, V> {
 
   pub fn root(&self) -> Arc<PersistentNode<K, V>> {
     self.root.clone()
+  }
+
+  pub fn maintain(&self) -> Self {
+    PersistentTrie {
+      root: self.root.maintain(None),
+    }
   }
 }
 

@@ -180,7 +180,7 @@ impl InputContext for CodeTableContext {
           Some(f) => {
             father = Some(f.clone());
           }
-          None => return BackspaceResult::Candidates(vec![]),
+          None => return BackspaceResult::Candidates(vec![], self.codes()),
         }
 
         if let Some(father) = father {
@@ -191,14 +191,16 @@ impl InputContext for CodeTableContext {
       let mut candidates = self.generate_candidates();
       candidates.sort();
 
+      info!("backspaced candidates: {:?}", candidates);
       BackspaceResult::Candidates(
         candidates
           .iter()
           .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
           .collect(),
+        self.codes(),
       )
     } else {
-      BackspaceResult::Candidates(vec![])
+      BackspaceResult::Candidates(vec![], self.codes())
     }
   }
 
