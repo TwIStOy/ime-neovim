@@ -97,6 +97,7 @@ impl<'a, K: Hash + Eq + Clone + 'a, V> PersistentNode<K, V> {
   }
 }
 
+#[derive(Debug)]
 pub struct PersistentTrie<K: Hash + Eq + Clone, V> {
   root: Arc<PersistentNode<K, V>>,
 }

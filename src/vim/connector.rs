@@ -115,7 +115,8 @@ impl Connector {
         .borrow_mut()
         .get_mut(&context_id)?
         .borrow_mut()
-        .feed(ch),
+        .feed(ch)
+        .0,
     )
   }
 

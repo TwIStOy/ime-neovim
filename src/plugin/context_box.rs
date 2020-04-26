@@ -1,19 +1,50 @@
 use crate::engine::Candidate;
 use crate::{make_args, vim_dict};
 use async_std::io::Stdout;
-use nvim_rs::{error::CallError, rpc::unpack::TryUnpack, Neovim};
+use log::info;
+use nvim_rs::{neovim_api, neovim_api_manual, rpc::unpack::TryUnpack, Buffer, Neovim, Window};
 use rmpv::Value;
 use std::cmp::{max, min};
 
 static CANDIDATE_PER_PAGE: usize = 7;
 
-#[derive(Debug)]
+struct CornerStyle {
+  lu: &'static str,
+  ru: &'static str,
+  lb: &'static str,
+  rb: &'static str,
+}
+struct BorderStyle {
+  corner: CornerStyle,
+  simple_left: &'static str,
+  simple_right: &'static str,
+  sep_left: &'static str,
+  sep_right: &'static str,
+  simple_up: &'static str,
+  simple_bottom: &'static str,
+  seperator: &'static str,
+}
+static BORDER: BorderStyle = BorderStyle {
+  corner: CornerStyle {
+    lu: "┌",
+    ru: "┐",
+    lb: "└",
+    rb: "┘",
+  },
+  simple_left: "│",
+  simple_right: "│",
+  sep_left: "├",
+  sep_right: "┤",
+  simple_up: "─",
+  simple_bottom: "─",
+  seperator: "─",
+};
+
 pub struct ContextWindow {
-  buf_id: i64,
-  win_id: i64,
+  buffer: Buffer<Stdout>,
+  window: Window<Stdout>,
 }
 
-#[derive(Debug)]
 pub struct ContextBox {
   candidates: Vec<Candidate>,
   page: usize,
@@ -21,21 +52,19 @@ pub struct ContextBox {
   win_info: Option<ContextWindow>,
 }
 
-impl Drop for ContextBox {
-  fn drop(&mut self) {}
-}
-
-// neovim
-// .call(
-//   "nvim_buf_set_lines",
-//   make_args![self.win_info.as_ref().unwrap().buf_id, 0, -1, true, lines],
-// )
-// .await??;
-
 macro_rules! call_vim {
     ($neovim:expr, $func:expr, $($args:expr),+) => {
-      ($neovim).call($func, make_args![$($args),*]).await??;
+      ($neovim).call($func, make_args![$($args),*]).await.map_err(|_| Value::from(format!("call neovim function {} failed", $func)))??
     }
+}
+
+macro_rules! eval_vim {
+  ($neovim:expr, $args:expr) => {
+    ($neovim)
+      .call("nvim_eval", make_args![$args])
+      .await
+      .map_err(|_| Value::from(format!("call neovim eval '{}' failed", $args)))??
+  };
 }
 
 impl ContextBox {
@@ -46,6 +75,23 @@ impl ContextBox {
       page: 0,
       win_info: None,
     }
+  }
+
+  pub async fn close(&self, neovim: &Neovim<Stdout>) -> Result<(), Value> {
+    match &self.win_info {
+      Some(info) => {
+        // info!("close ctx_box: {:?}", info);
+        // call_vim![neovim, "nvim_win_close", info.win_id, true];
+        info
+          .window
+          .close(true)
+          .await
+          .map_err(|_| Value::from("close window failed"))?;
+      }
+      None => {}
+    }
+
+    Ok(())
   }
 
   fn max_page_id(&self) -> usize {
@@ -87,126 +133,184 @@ impl ContextBox {
     }
   }
 
-  pub fn box_width(&self) -> usize {
-    let mut width: usize = 0;
+  // pub fn box_width(&self) -> usize {
+  //   let mut width: usize = 0;
 
-    // codes will be rendered into "hao'tian"
-    width = max(
-      self.codes.iter().map(|x| x.len()).sum::<usize>() + (self.codes.len() - 1),
-      width,
-    );
+  //   // codes will be rendered into "hao'tian"
+  //   width = max(
+  //     self.codes.iter().map(|x| x.len()).sum::<usize>() + (self.codes.len() - 1),
+  //     width,
+  //   );
 
-    let candidates_in_page = self.candidate_slice();
-    width = max(
-      width,
-      // candidate text
-      candidates_in_page
-        .iter()
-        .map(|x| x.text.chars().count() * 2 + x.remain_codes.len())
-        .sum::<usize>()
-        // seperator
-        + (candidates_in_page.len() - 1)
-        // number, eg: 1.
-        + candidates_in_page.len() * 2,
-    );
+  //   if self.candidates.len() > 0 {
+  //     let candidates_in_page = self.candidate_slice();
+  //     width = max(
+  //       width,
+  //       // candidate text
+  //       candidates_in_page
+  //       .iter()
+  //       .map(|x| x.text.chars().count() * 2 + x.remain_codes.len())
+  //       .sum::<usize>()
+  //       // seperator
+  //       + (candidates_in_page.len() - 1)
+  //       // number, eg: 1.
+  //       + candidates_in_page.len() * 2,
+  //     );
+  //   }
 
-    width
-  }
+  //   width
+  // }
+  async fn create_floating_window(&mut self, neovim: &Neovim<Stdout>) -> Result<(), Value> {
+    info!("create floating window");
 
-  async fn create_floating_window(
-    &mut self,
-    neovim: &Neovim<Stdout>,
-  ) -> Result<(), Box<CallError>> {
     if self.win_info.is_some() {
       return Ok(());
     }
 
-    let mut ctx_win = ContextWindow {
-      buf_id: 0,
-      win_id: 0,
-    };
     let opt = vim_dict! {
       "relative" => "cursor",
-      "height" => 3,
-      "width" => 3,
-      "style" => "minimal"
+      "height" => 3 + 2,
+      "width" => 3 + 2,
+      "style" => "minimal",
+      "row" => 1,
+      "col" => 1,
     };
 
-    ctx_win.buf_id = neovim
-      .call("nvim_create_buf", make_args![false, true])
-      .await??
-      .try_unpack()
-      .map_err(|v| Box::new(CallError::WrongValueType(v)))?;
-    if ctx_win.buf_id == 0 {
-      return Err(Box::new(CallError::WrongValueType(Value::from(
-        "failed to create buf",
-      ))));
-    }
-    ctx_win.win_id = neovim
-      .call("nvim_open_win", make_args![ctx_win.buf_id, false, opt])
-      .await??
-      .try_unpack()
-      .map_err(|v| Box::new(CallError::WrongValueType(v)))?;
-
-    self.win_info = Some(ctx_win);
+    let buffer = neovim
+      .create_buf(false, true)
+      .await
+      .map_err(|_| Value::from("create buffer failed"))?;
+    // ctx_win.buf_id = eval_vim![neovim, "bufadd('ime-selector')"].try_unpack()?;
+    // if ctx_win.buf_id == 0 {
+    //   return Err(Value::from("failed to create buf"));
+    // }
+    // info!("float buffer created with id: {}", ctx_win.buf_id);
+    let window = neovim
+      .open_win(&buffer, false, opt)
+      .await
+      .map_err(|_| Value::from("open float win failed"))?;
+    // ctx_win.win_id = call_vim![neovim, "nvim_open_win", ctx_win.buf_id, false, opt].try_unpack()?;
+    // info!("fuck");
+    self.win_info = Some(ContextWindow { buffer, window });
 
     Ok(())
   }
 
-  async fn render_select_box(&self, neovim: &Neovim<Stdout>) -> Result<(), Box<CallError>> {
-    if let Some(info) = self.win_info.as_ref() {
-      let width = self.box_width();
-      let opt = vim_dict![
-        "height" => 3 + 2,
-        "width" => self.box_width() + 2,
+  async fn render_select_box(&self, _neovim: &Neovim<Stdout>) -> Result<(), Value> {
+    if let Some(info) = &self.win_info {
+      let candidates = self.candidate_slice();
+      info!("candidates this page: {:?}", candidates);
+
+      let lines: Vec<String> = vec![
+        self.codes.join("'"),
+        "--".to_string(),
+        candidates
+          .iter()
+          .enumerate()
+          .map(|(i, candidate)| {
+            format!(
+              "{}.{}{}",
+              i + 1,
+              candidate.text,
+              candidate.remain_codes.iter().collect::<String>()
+            )
+          })
+          .collect::<Vec<String>>()
+          .join("  "),
       ];
+      info!("lines before bordered: {:?}", lines);
+
+      let mut width = 0;
+      for s in &lines {
+        width = max(
+          s.chars().map(|ch| if ch.is_ascii() { 1 } else { 2 }).sum(),
+          width,
+        );
+      }
 
       // resize window
-      call_vim![neovim, "nvim_win_set_config", info.win_id, opt];
-
-      let lines: Vec<Value> = vec![
-        Value::from(self.codes.join("'")),
-        Value::from("----------------"),
-        Value::from(
-          self
-            .candidates
-            .iter()
-            .enumerate()
-            .map(|(i, candidate)| {
-              format!(
-                "{}. {}{}",
-                i + 1,
-                candidate.text,
-                candidate.remain_codes.iter().collect::<String>()
-              )
-            })
-            .collect::<Vec<String>>()
-            .join(" "),
-        ),
+      let opt = vim_dict![
+        "height" => 3 + 2,
+        "width" => width + 2,
       ];
+      info!("render selection box to ({}, {})", 5, width + 2);
+      info
+        .window
+        .set_config(opt)
+        .await
+        .map_err(|_| Value::from("update window config failed"))?;
+      info!("update window size to ({}, {})", 5, width + 2);
 
-      neovim
-        .call(
-          "nvim_buf_set_lines",
-          make_args![self.win_info.as_ref().unwrap().buf_id, 0, -1, true, lines],
-        )
-        .await??;
+      let bordered_text = Self::make_bordered_text(lines, width);
+      info!("bordered text: {:?}", bordered_text);
 
+      info
+        .buffer
+        .set_lines(0, -1, false, bordered_text)
+        .await
+        .map_err(|_| Value::from("set lines failed"))?;
       Ok(())
     } else {
-      Err(Box::new(CallError::WrongValueType(Value::from(
-        "window has not been created",
-      ))))
+      Err(Value::from("window has not been created"))
     }
   }
 
-  pub async fn render(&mut self, neovim: &Neovim<Stdout>) {
-    let candidates_this_page = self.candidate_slice();
+  pub async fn render(&mut self, neovim: &Neovim<Stdout>) -> Result<(), Value> {
+    // let candidates_this_page = self.candidate_slice();
 
     if self.win_info.is_none() {
-      self.create_floating_window(neovim).await;
+      self.create_floating_window(neovim).await?;
     }
 
-    self.render_select_box(neovim).await;
+    self.render_select_box(neovim).await?;
+
+    Ok(())
+  }
+
+  fn make_bordered_text(text: Vec<String>, width: usize) -> Vec<String> {
+    let mut res = vec![vec![
+      BORDER.corner.lu,
+      &BORDER.simple_up.repeat(width),
+      BORDER.corner.ru,
+    ]
+    .join("")];
+
+    for s in text {
+      if s != "--" {
+        res.push(
+          vec![
+            BORDER.simple_left,
+            &s,
+            &" ".repeat(width - Self::eval_length(&s)),
+            BORDER.simple_right,
+          ]
+          .join(""),
+        );
+      } else {
+        res.push(
+          vec![
+            BORDER.sep_left,
+            &BORDER.seperator.repeat(width),
+            BORDER.sep_right,
+          ]
+          .join(""),
+        );
+      }
+    }
+
+    res.push(
+      vec![
+        BORDER.corner.lb,
+        &BORDER.simple_bottom.repeat(width),
+        BORDER.corner.rb,
+      ]
+      .join(""),
+    );
+
+    res
+  }
+
+  fn eval_length(s: &String) -> usize {
+    s.chars().map(|ch| if ch.is_ascii() { 1 } else { 2 }).sum()
   }
 }

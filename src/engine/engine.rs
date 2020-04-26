@@ -1,7 +1,8 @@
 use crate::engine::candidate::Candidate;
+use async_std::sync::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 static mut _CONTEXT_IDX: u32 = 0;
 
@@ -29,11 +30,13 @@ pub enum BackspaceResult {
 }
 
 pub trait InputContext: Send {
-  fn feed(&mut self, ch: char) -> Vec<Candidate>;
+  fn feed(&mut self, ch: char) -> (Vec<Candidate>, Vec<String>);
 
   fn backspace(&mut self) -> BackspaceResult;
 
   fn id(&self) -> ContextId;
+
+  fn codes(&self) -> Vec<String>;
 }
 
 pub trait IMEngine: Send {

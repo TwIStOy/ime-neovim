@@ -47,8 +47,8 @@ function! IMEStartContext() abort
     call IMECancel()
   endif
 
-  let s:context_id = s:uuid()
-  call rpcrequest(s:ime_job_id, 'start_context', s:context_id)
+  let s:context_id = rpcrequest(s:ime_job_id, 'start_context')
+  return s:context_id
 endfunction
 
 function! IMEInput(ch) abort
@@ -57,7 +57,8 @@ function! IMEInput(ch) abort
     return ''
   endif
 
-  let candidates = rpcrequest(s:ime_job_id, 'input_char', s:context_id, a:ch)
+  let candidates = rpcrequest(s:ime_job_id, 'input_char',
+        \ s:context_id, a:ch, bufnr('%'))
   echo candidates
 endfunction
 

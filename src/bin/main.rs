@@ -1,3 +1,7 @@
+use async_std;
+use async_std::sync::Mutex;
+use ime::engine::codetable::code_table::CodeTable;
+use ime::plugin::PluginManager;
 use ime::vim::connector::Connector;
 use log::{error, info, warn, LevelFilter, SetLoggerError};
 use log4rs;
@@ -10,16 +14,20 @@ use log4rs::{
   encode::pattern::PatternEncoder,
   filter::threshold::ThresholdFilter,
 };
+use nvim_rs::create::async_std as create;
+use std::sync::Arc;
 
-fn main() -> Result<(), SetLoggerError> {
+#[async_std::main]
+async fn main() -> Result<(), SetLoggerError> {
   // println!("{}", "啊啊啊".chars().count());
-  let level = log::LevelFilter::Info;
   let file_path = "/Users/twistoy/.cache/log/ime-neovim.log";
 
   // Logging to log file.
   let logfile = FileAppender::builder()
     // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
-    .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+    .encoder(Box::new(PatternEncoder::new(
+      "{l}[{T}:{I}] [{M}:{L}] {m}\n",
+    )))
     .build(file_path)
     .unwrap();
 
@@ -40,46 +48,42 @@ fn main() -> Result<(), SetLoggerError> {
   // once you are done.
   let _handle = log4rs::init_config(config)?;
 
-  let conn = Connector::new();
+  let handler = PluginManager::new(Arc::new(Mutex::new(CodeTable::table_file("小鹤音形.txt"))));
+  let (nvim, io_handler) = create::new_parent(handler).await;
 
-  conn.recv();
+  match io_handler.await {
+    Err(err) => {
+      if !err.is_reader_error() {
+        // One last try, since there wasn't an error with writing to the
+        // stream
+        nvim
+          .err_writeln(&format!("Error: '{}'", err))
+          .await
+          .unwrap_or_else(|e| {
+            // We could inspect this error to see what was happening, and
+            // maybe retry, but at this point it's probably best
+            // to assume the worst and print a friendly and
+            // supportive message to our users
+            error!("Well, dang... '{}'", e);
+          });
+      }
 
-  // {
-  //   let mut tr = Trie::<char, String>::new();
-  //   tr.insert("aaa".chars().collect::<Vec<char>>().iter(), "1".to_string());
-  //   tr.insert("aab".chars().collect::<Vec<char>>().iter(), "1".to_string());
-  //   tr.insert("aac".chars().collect::<Vec<char>>().iter(), "1".to_string());
-  //   tr.insert("aad".chars().collect::<Vec<char>>().iter(), "1".to_string());
-  //   tr.insert("aad".chars().collect::<Vec<char>>().iter(), "2".to_string());
-  //   tr.insert(
-  //     "aad".chars().collect::<Vec<char>>().iter(),
-  //     "啊".to_string(),
-  //   );
+      if !err.is_channel_closed() {
+        // Closed channel usually means neovim quit itself, or this plugin was
+        // told to quit by closing the channel, so it's not always an error
+        // condition.
+        error!("Error: '{}'", err);
 
-  //   for line in tr.print_tree() {
-  //     println!("{}", line);
-  //   }
-  // }
+        // let mut source = err.source();
 
-  // {
-  //   let mut tr = Trie::<String, String>::new();
-  //   let mut tmp: Vec<String> = Vec::new();
-  //   tmp.push("fuck".to_string());
-  //   tmp.push("shit".to_string());
-  //   tr.insert(tmp.iter(), "1".to_string());
+        // while let Some(e) = source {
+        //   eprintln!("Caused by: '{}'", e);
+        //   source = e.source();
+        // }
+      }
+    }
+    Ok(()) => {}
+  }
 
-  //   for line in tr.print_tree() {
-  //     println!("{}", line);
-  //   }
-  // }
-
-  // println!("{:?}", KeyMap::available_keymaps());
-  // println!("{:?}", KeyMap::load("小鹤双拼.plist"));
-
-  // let mut codetable = CodeTable::table_file(&"小鹤音形.txt".to_string());
-  // let mut ctx = codetable.start_context();
-
-  // ctx.feed('x');
-  // println!("{}", serde_json::to_string(&ctx.feed('x')).unwrap());
   Ok(())
 }

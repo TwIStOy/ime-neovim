@@ -2,11 +2,12 @@ use crate::data::PersistentTrie;
 use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{IMEngine, InputContext};
 use crate::path::LocalDataPath;
+use async_std::sync::Mutex;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct CodeTable {
   table: PersistentTrie<char, ResultText>,
@@ -25,7 +26,7 @@ impl IMEngine for CodeTable {
 }
 
 impl CodeTable {
-  pub fn table_file(filename: &String) -> CodeTable {
+  pub fn table_file(filename: &str) -> CodeTable {
     let mut code_table = CodeTable {
       table: PersistentTrie::new(),
     };
@@ -45,7 +46,7 @@ impl CodeTable {
           priority = v[2].parse::<u32>().unwrap();
         }
 
-        code_table.table.insert(
+        code_table.table = code_table.table.insert(
           v[1].chars().collect::<Vec<char>>().iter(),
           ResultText {
             text: v[0].to_string(),

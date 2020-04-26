@@ -1,4 +1,4 @@
-use crate::data::{PersistentNode};
+use crate::data::PersistentNode;
 use crate::engine::candidate::Candidate;
 use crate::engine::engine::{BackspaceResult, ContextId, InputContext};
 use log::info;
@@ -118,7 +118,7 @@ impl CodeTableContext {
 }
 
 impl InputContext for CodeTableContext {
-  fn feed(&mut self, ch: char) -> Vec<Candidate> {
+  fn feed(&mut self, ch: char) -> (Vec<Candidate>, Vec<String>) {
     self.input_sequence.push(ch);
 
     if self.overflow_number > 0 {
@@ -140,15 +140,18 @@ impl InputContext for CodeTableContext {
     );
 
     if self.overflow_number > 0 {
-      vec![]
+      (vec![], self.codes())
     } else {
       let mut candidates = self.generate_candidates();
       candidates.sort();
 
-      candidates
-        .iter()
-        .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
-        .collect()
+      (
+        candidates
+          .iter()
+          .map(|item| Candidate::new(item.text.clone(), item.codes.clone()))
+          .collect(),
+        self.codes(),
+      )
     }
   }
 
@@ -201,5 +204,14 @@ impl InputContext for CodeTableContext {
 
   fn id(&self) -> ContextId {
     self.id.clone()
+  }
+
+  fn codes(&self) -> Vec<String> {
+    vec![self
+      .input_sequence
+      .iter()
+      .map(|x| x.to_string())
+      .collect::<Vec<String>>()
+      .join("")]
   }
 }
