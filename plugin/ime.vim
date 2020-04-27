@@ -1,2 +1,2 @@
-inoremap <C-I><C-I> <C-o>:call ime#toggle()<CR>
+inoremap <silent> <C-I><C-I> <C-o>:call ime#toggle()<CR>
 

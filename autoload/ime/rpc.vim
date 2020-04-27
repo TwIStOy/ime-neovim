@@ -54,7 +54,8 @@ endfunction
 
 function! ime#rpc#backspace() abort
   if !exists('b:__ime_context_id')
-    call ime#rpc#start_context()
+    call feedkeys("\<Bs>", 'n')
+    return ""
   endif
 
   let res = ime#rpc#request('backspace', b:__ime_context_id, bufnr('%'))
