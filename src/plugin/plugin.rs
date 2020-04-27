@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use log::info;
 use nvim_rs::{neovim_api, neovim_api_manual, Buffer, Handler as NeovimHandler, Neovim};
 use rmpv::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -16,6 +16,7 @@ pub struct PluginManager {
   engine: Arc<Mutex<dyn IMEngine>>,
   contexts: Arc<Mutex<HashMap<String, Arc<Mutex<dyn InputContext>>>>>,
   buffer_box: Arc<Mutex<HashMap<i64, Arc<Mutex<ContextBox>>>>>,
+  mappings: Arc<Mutex<HashSet<String>>>,
 }
 
 #[macro_export]
@@ -73,37 +74,13 @@ impl NeovimHandler for PluginManager {
   }
 }
 
-async fn set_keymap(buf: &Buffer<Stdout>, ch: String, cmd: String) -> Result<(), Value> {
-  buf
-    .set_keymap(
-      "i",
-      &ch,
-      &cmd,
-      vim_dict![
-        "silent" => true,
-      ],
-    )
-    .await
-    .map_err(|_| Value::from(format!("failed to register keymap: {}", ch)))?;
-
-  Ok(())
-}
-
-async fn del_keymap(buf: &Buffer<Stdout>, ch: String) -> Result<(), Value> {
-  buf
-    .del_keymap("i", &ch)
-    .await
-    .map_err(|_| Value::from(format!("failed to unregister keymap: {}", ch)))?;
-
-  Ok(())
-}
-
 impl PluginManager {
   pub fn new(engine: Arc<Mutex<dyn IMEngine>>) -> PluginManager {
     PluginManager {
       engine: engine,
       contexts: Arc::new(Mutex::new(HashMap::new())),
       buffer_box: Arc::new(Mutex::new(HashMap::new())),
+      mappings: Arc::new(Mutex::new(HashSet::new())),
     }
   }
 
@@ -343,39 +320,25 @@ impl PluginManager {
       .await
       .map_err(|_| Value::from("failed to get current buffer"))?;
 
-    for ch in keycodes {
-      set_keymap(
-        &buf,
-        ch.to_string(),
-        format!("<C-R>=ime#rpc#input_char('{}')<C-M>", ch),
-      )
-      .await?;
+    let mut mappings = self.mappings.lock().await;
+
+    macro_rules! inoremap {
+      ($lhs:expr, $rhs:expr) => {
+        buf.set_keymap("i", &$lhs.to_string(), &$rhs.to_string(), vim_dict![ "silent" => true, ],).await.map_err(|_| Value::from(format!("failed to register keymap: {}", $lhs)))?;
+        mappings.insert($lhs.to_string());
+      };
     }
-    set_keymap(
-      &buf,
-      "<Space>".to_string(),
-      format!("<C-R>=ime#rpc#confirm(1)<C-M>"),
-    )
-    .await?;
-    set_keymap(
-      &buf,
-      "<Esc>".to_string(),
-      format!("<C-o>:call ime#rpc#cancel()<CR>"),
-    )
-    .await?;
-    set_keymap(
-      &buf,
-      "<BS>".to_string(),
-      format!("<C-R>=ime#rpc#backspace()<C-M>"),
-    )
-    .await?;
+
+    // mappings.insert("a".to_string());
+
+    for ch in keycodes {
+      inoremap!(ch, format!("<C-R>=ime#rpc#input_char('{}')<C-M>", ch));
+    }
+    inoremap!("<Space>", format!("<C-R>=ime#rpc#confirm(1)<C-M>"));
+    inoremap!("<Esc>", format!("<C-o>:call ime#rpc#cancel()<CR>"));
+    inoremap!("<BS>", format!("<C-R>=ime#rpc#backspace()<C-M>"));
     for i in 1..(CANDIDATE_PER_PAGE + 1) {
-      set_keymap(
-        &buf,
-        i.to_string(),
-        format!("<C-R>=ime#rpc#confirm({})<C-M>", i),
-      )
-      .await?;
+      inoremap!(i, format!("<C-R>=ime#rpc#confirm({})<C-M>", i));
     }
 
     Ok(Value::from(true))
@@ -389,16 +352,15 @@ impl PluginManager {
       .await
       .map_err(|_| Value::from("failed to get current buffer"))?;
 
-    for ch in keycodes {
-      del_keymap(&buf, ch.to_string()).await?;
-    }
-    del_keymap(&buf, "<Space>".to_string()).await?;
-    del_keymap(&buf, "<Esc>".to_string()).await?;
-    del_keymap(&buf, "<BS>".to_string()).await?;
-    for i in 1..(CANDIDATE_PER_PAGE + 1) {
-      del_keymap(&buf, i.to_string()).await?;
+    let mut mappings = self.mappings.lock().await;
+    for ch in mappings.clone() {
+      buf
+        .del_keymap("i", &ch)
+        .await
+        .map_err(|_| Value::from(format!("failed to unregister keymap: {}", ch)))?;
     }
 
+    mappings.clear();
     Ok(Value::from(true))
   }
 }
