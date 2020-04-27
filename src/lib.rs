@@ -7,7 +7,6 @@ pub mod path;
 #[macro_use]
 pub mod plugin;
 pub mod utility;
-pub mod vim;
 
 extern crate async_std;
 extern crate dirs;

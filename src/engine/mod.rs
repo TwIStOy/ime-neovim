@@ -5,6 +5,6 @@ pub mod engine;
 pub mod keymap;
 pub mod pinyin;
 
-pub use base::{Configuration, PinyinFinals, PinyinInitials};
+pub use base::Configuration;
 pub use candidate::{Candidate, MatchType};
 pub use engine::{BackspaceResult, IMEngine, InputContext};
