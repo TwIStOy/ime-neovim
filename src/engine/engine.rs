@@ -1,6 +1,7 @@
 use crate::engine::candidate::Candidate;
 use async_std::sync::Mutex;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -44,4 +45,6 @@ pub trait IMEngine: Send {
   fn start_context(&self) -> Rc<RefCell<dyn InputContext>>;
 
   fn start_context_async(&self) -> Arc<Mutex<dyn InputContext>>;
+
+  fn keycodes(&self) -> HashSet<char>;
 }

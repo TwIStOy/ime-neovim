@@ -5,7 +5,7 @@ use async_std::io::Stdout;
 use async_std::sync::Mutex;
 use async_trait::async_trait;
 use log::info;
-use nvim_rs::{Handler as NeovimHandler, Neovim};
+use nvim_rs::{neovim_api, neovim_api_manual, Buffer, Handler as NeovimHandler, Neovim};
 use rmpv::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -59,15 +59,43 @@ impl NeovimHandler for PluginManager {
     neovim: Neovim<Self::Writer>,
   ) -> Result<Value, Value> {
     match name.as_ref() {
+      "register_events" => self.register_events(neovim).await,
+      "unregister_events" => self.unregister_events(neovim).await,
       "start_context" => self.start_context(args, neovim).await,
       "input_char" => self.input_char(args, neovim).await,
       "next_page" => self.next_page(args, neovim).await,
       "previous_page" => self.previous_page(args, neovim).await,
       "backspace" => self.backspace(args, neovim).await,
       "cancel" => self.cancel(args, neovim).await,
+      "confirm" => self.confirm(args, neovim).await,
       _ => Err(Value::from(format!("no method named: '{}'", name))),
     }
   }
+}
+
+async fn set_keymap(buf: &Buffer<Stdout>, ch: String, cmd: String) -> Result<(), Value> {
+  buf
+    .set_keymap(
+      "i",
+      &ch,
+      &cmd,
+      vim_dict![
+        "silent" => true,
+      ],
+    )
+    .await
+    .map_err(|_| Value::from(format!("failed to register keymap: {}", ch)))?;
+
+  Ok(())
+}
+
+async fn del_keymap(buf: &Buffer<Stdout>, ch: String) -> Result<(), Value> {
+  buf
+    .del_keymap("i", &ch)
+    .await
+    .map_err(|_| Value::from(format!("failed to unregister keymap: {}", ch)))?;
+
+  Ok(())
 }
 
 impl PluginManager {
@@ -98,14 +126,16 @@ impl PluginManager {
     // args: [context_id, char, bufnr]
     let ((candidates, codes), bufnr) = self._input_char_impl(_args).await?;
 
-    info!(
-      "construct ctx_box with candidates: {:?}, codes: {:?}, bufnr: {}",
-      candidates, codes, bufnr
-    );
+    // info!(
+    //   "construct ctx_box with candidates: {:?}, codes: {:?}, bufnr: {}",
+    //   candidates, codes, bufnr
+    // );
 
     self
       .render_new_buffer_box(bufnr, candidates, codes, &_neovim)
-      .await
+      .await?;
+
+    Ok(Value::from(""))
   }
 
   async fn _input_char_impl(
@@ -253,21 +283,33 @@ impl PluginManager {
       .as_i64()
       .ok_or_else(|| Value::from("third parameter should be int"))?;
 
-    match self.buffer_box.lock().await.get(&bufnr) {
-      Some(_buf_box) => {
-        info!("buf box found!");
+    let mut confirm_text: Option<String> = None;
+    {
+      match self.buffer_box.lock().await.get(&bufnr) {
+        Some(_buf_box) => {
+          info!("buf box found!");
 
-        let buf_box = _buf_box.lock().await;
-        if let Some(txt) = buf_box.confirm(idx) {
-          // if ok, cancel it
-          self.cancel(make_args![ctx_id, bufnr], neovim).await;
-
-          Ok(Value::from(txt))
-        } else {
-          Err(Value::from("index out of range"))
+          let buf_box = _buf_box.lock().await;
+          if let Some(txt) = buf_box.confirm(idx) {
+            // if ok, cancel it
+            confirm_text = Some(txt.clone());
+          // Ok(Value::from(txt))
+          } else {
+            return Err(Value::from("index out of range"));
+          }
         }
+        None => return Err(Value::from("no buffer box")),
       }
-      None => Err(Value::from("no buffer box")),
+    }
+
+    if let Some(txt) = confirm_text {
+      self.cancel(make_args![ctx_id, bufnr], neovim).await;
+
+      info!("confirm txt: {}", txt);
+
+      Ok(Value::from(txt))
+    } else {
+      Err(Value::from("failed to confirm"))
     }
   }
 
@@ -293,6 +335,52 @@ impl PluginManager {
     Ok(Value::from("ok"))
   }
 
-  // todo(hawtian): impl this
-  async fn register_events() -> Result<Value, Value> {}
+  async fn register_events(&self, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    let keycodes = self.engine.lock().await.keycodes();
+
+    let buf = neovim
+      .get_current_buf()
+      .await
+      .map_err(|_| Value::from("failed to get current buffer"))?;
+
+    for ch in keycodes {
+      set_keymap(
+        &buf,
+        ch.to_string(),
+        format!("<C-R>=ime#rpc#input_char('{}')<C-M>", ch),
+      )
+      .await?;
+    }
+    set_keymap(
+      &buf,
+      "<Space>".to_string(),
+      format!("<C-R>=ime#rpc#confirm(1)<C-M>"),
+    )
+    .await?;
+    set_keymap(
+      &buf,
+      "<Esc>".to_string(),
+      format!("<C-o>:call ime#rpc#cancel()<CR>"),
+    )
+    .await?;
+
+    Ok(Value::from(true))
+  }
+
+  async fn unregister_events(&self, neovim: Neovim<Stdout>) -> Result<Value, Value> {
+    let keycodes = self.engine.lock().await.keycodes();
+
+    let buf = neovim
+      .get_current_buf()
+      .await
+      .map_err(|_| Value::from("failed to get current buffer"))?;
+
+    for ch in keycodes {
+      del_keymap(&buf, ch.to_string()).await?;
+    }
+    del_keymap(&buf, "<Space>".to_string()).await?;
+    del_keymap(&buf, "<Esc>".to_string()).await?;
+
+    Ok(Value::from(true))
+  }
 }

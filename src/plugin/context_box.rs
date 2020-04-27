@@ -135,10 +135,14 @@ impl ContextBox {
 
   pub fn confirm(&self, idx: i64) -> Option<String> {
     let candidates = self.candidate_slice();
-    if candidates.len() >= idx as usize {
-      Some(candidates[idx as usize - 1].text.clone())
+    if candidates.len() == 0 {
+      Some(self.codes.join(""))
     } else {
-      None
+      if candidates.len() >= idx as usize {
+        Some(candidates[idx as usize - 1].text.clone())
+      } else {
+        None
+      }
     }
   }
 

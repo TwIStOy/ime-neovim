@@ -92,6 +92,6 @@
 "   call IMEBackspace()
 " endfunction
 
-inoremap <C-I><C-I> <C-o>:call ime#interp()<CR>
+inoremap <C-I><C-I> <C-o>:call ime#toggle()<CR>
 " lnoremap <buffer><expr>x ime#feed(char2nr('x'))
-inoremap x <C-o>:call ime#feed('x')<CR>
+" inoremap x <C-o>:call ime#feed('x')<CR>

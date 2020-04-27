@@ -4,6 +4,7 @@ use crate::engine::engine::{IMEngine, InputContext};
 use crate::path::LocalDataPath;
 use async_std::sync::Mutex;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::rc::Rc;
@@ -11,6 +12,7 @@ use std::sync::Arc;
 
 pub struct CodeTable {
   table: PersistentTrie<char, ResultText>,
+  keycodes: HashSet<char>,
 }
 
 impl IMEngine for CodeTable {
@@ -23,12 +25,17 @@ impl IMEngine for CodeTable {
     // todo
     Arc::new(Mutex::new(CodeTableContext::new(self.table.root())))
   }
+
+  fn keycodes(&self) -> HashSet<char> {
+    self.keycodes.clone()
+  }
 }
 
 impl CodeTable {
   pub fn table_file(filename: &str) -> CodeTable {
     let mut code_table = CodeTable {
       table: PersistentTrie::new(),
+      keycodes: HashSet::new(),
     };
     let filepath = LocalDataPath::new().sub("codetable").file(filename);
 
@@ -53,6 +60,9 @@ impl CodeTable {
             priority: priority,
           },
         );
+        for ch in v[1].chars().collect::<Vec<char>>() {
+          code_table.keycodes.insert(ch);
+        }
       }
     }
 

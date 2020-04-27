@@ -26,6 +26,14 @@ function! ime#rpc#request(method, ...) abort
   return call('rpcrequest', [s:job_id, a:method] + a:000)
 endfunction
 
+function! ime#rpc#register() abort
+  call ime#rpc#request('register_events')
+endfunction
+
+function! ime#rpc#unregister() abort
+  call ime#rpc#request('unregister_events')
+endfunction
+
 function! ime#rpc#start_context() abort
   if exists('b:__ime_context_id')
     if b:__ime_context_id != ''
@@ -41,7 +49,7 @@ function! ime#rpc#input_char(ch) abort
     call ime#rpc#start_context()
   endif
 
-  call ime#rpc#request('input_char', b:__ime_context_id, a:ch, bufnr('%'))
+  return ime#rpc#request('input_char', b:__ime_context_id, a:ch, bufnr('%'))
 endfunction
 
 function! ime#rpc#backspace() abort
@@ -50,6 +58,7 @@ function! ime#rpc#backspace() abort
   endif
 
   call ime#rpc#request('backspace', b:__ime_context_id, bufnr('%'))
+  return ""
 endfunction
 
 function! ime#rpc#next_page() abort
@@ -59,6 +68,7 @@ function! ime#rpc#next_page() abort
   endif
 
   call ime#rpc#request('next_page', bufnr('%'))
+  return ""
 endfunction
 
 function! ime#rpc#previous_page() abort
@@ -68,6 +78,7 @@ function! ime#rpc#previous_page() abort
   endif
 
   call ime#rpc#request('previous_page', bufnr('%'))
+  return ""
 endfunction
 
 function! ime#rpc#confirm(idx) abort
@@ -76,7 +87,10 @@ function! ime#rpc#confirm(idx) abort
     return
   endif
 
-  call ime#rpc#request('confirm', b:__ime_context_id, a:idx, bufnr('%'))
+  let txt = ime#rpc#request('confirm', b:__ime_context_id, a:idx, bufnr('%'))
+
+  call ime#rpc#cancel()
+  return txt
 endfunction
 
 function! ime#rpc#cancel() abort
@@ -84,7 +98,7 @@ function! ime#rpc#cancel() abort
     call ime#rpc#start_context()
   endif
 
-  call s:cancel_context(b:__ime_context_id, bufnr('%'))
+  call s:cancel_context(b:__ime_context_id)
 endfunction
 
 function! s:cancel_context(id) abort
