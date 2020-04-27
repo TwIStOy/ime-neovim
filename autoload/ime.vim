@@ -16,4 +16,6 @@ function! s:disable_ime() abort
   let b:__ime_enable = v:false
 
   call ime#rpc#unregister()
+
+  call feedkeys("\<Esc>")
 endfunction

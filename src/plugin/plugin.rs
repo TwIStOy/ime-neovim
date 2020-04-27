@@ -1,4 +1,4 @@
-use super::context_box::ContextBox;
+use super::context_box::{ContextBox, CANDIDATE_PER_PAGE};
 use crate::engine::{BackspaceResult, Candidate, IMEngine, InputContext};
 use async_std;
 use async_std::io::Stdout;
@@ -265,7 +265,7 @@ impl PluginManager {
       buf_box.lock().await.close(&neovim).await?;
     }
 
-    Ok(Value::from("canceled "))
+    Ok(Value::from("canceled"))
   }
 
   async fn confirm(&self, args: Vec<Value>, neovim: Neovim<Stdout>) -> Result<Value, Value> {
@@ -363,6 +363,20 @@ impl PluginManager {
       format!("<C-o>:call ime#rpc#cancel()<CR>"),
     )
     .await?;
+    set_keymap(
+      &buf,
+      "<BS>".to_string(),
+      format!("<C-R>=ime#rpc#backspace()<C-M>"),
+    )
+    .await?;
+    for i in 1..(CANDIDATE_PER_PAGE + 1) {
+      set_keymap(
+        &buf,
+        i.to_string(),
+        format!("<C-R>=ime#rpc#confirm({})<C-M>", i),
+      )
+      .await?;
+    }
 
     Ok(Value::from(true))
   }
@@ -380,6 +394,10 @@ impl PluginManager {
     }
     del_keymap(&buf, "<Space>".to_string()).await?;
     del_keymap(&buf, "<Esc>".to_string()).await?;
+    del_keymap(&buf, "<BS>".to_string()).await?;
+    for i in 1..(CANDIDATE_PER_PAGE + 1) {
+      del_keymap(&buf, i.to_string()).await?;
+    }
 
     Ok(Value::from(true))
   }

@@ -57,7 +57,11 @@ function! ime#rpc#backspace() abort
     call ime#rpc#start_context()
   endif
 
-  call ime#rpc#request('backspace', b:__ime_context_id, bufnr('%'))
+  let res = ime#rpc#request('backspace', b:__ime_context_id, bufnr('%'))
+  if res == "canceled"
+    unlet b:__ime_context_id
+  endif
+
   return ""
 endfunction
 

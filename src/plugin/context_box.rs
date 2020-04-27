@@ -6,7 +6,7 @@ use nvim_rs::{neovim_api, neovim_api_manual, rpc::unpack::TryUnpack, Buffer, Neo
 use rmpv::Value;
 use std::cmp::{max, min};
 
-static CANDIDATE_PER_PAGE: usize = 7;
+pub static CANDIDATE_PER_PAGE: usize = 7;
 
 struct CornerStyle {
   lu: &'static str,
