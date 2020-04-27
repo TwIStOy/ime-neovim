@@ -1,15 +1,14 @@
 use crate::engine::candidate::Candidate;
 use crate::engine::engine::IMEngine;
 
-struct PinyinEngine {}
+struct PinyinEngine {
+}
 
-// impl IMEngine for PinyinEngine {
-//   fn feed(&mut self, ch: char) -> Vec<Candidate> {
-//     // todo
-//     vec![]
-//   }
+impl IMEngine for PinyinEngine {
+  fn start_context(&self) -> Rc<RefCell<dyn InputContext>>;
 
-//   fn reset(&mut self) {
-//     // todo
-//   }
-// }
+  fn start_context_async(&self) -> Arc<Mutex<dyn InputContext>>;
+
+  fn keycodes(&self) -> HashSet<char>;
+}
+

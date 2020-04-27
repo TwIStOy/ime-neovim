@@ -1,14 +1,30 @@
 use rmpv::Value;
 use serde::{Deserialize, Serialize};
 use serde_json;
-
-pub struct PinyinInitials(String);
-pub struct PinyinFinals(String);
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Configuration {
-  CodeTable { perfect_only: bool, codefile: String, },
-  Pinyin,
+  CodeTable {
+    // enable to show only perfect matched candidates
+    perfect_only: bool,
+    // codetable filename
+    codetable_file: String,
+  },
+  Pinyin {
+    // KeyMap filename
+    scheme_file: String,
+    // AssistCodes filename
+    assist_file: Option<String>,
+    // fuzzy syllables settings
+    fuzzy_syllables: HashMap<String, String>,
+    // character database filename
+    character_database: String,
+    // word database filename
+    word_database: Option<String>,
+    // if enable dynamic word frequency
+    dynamic_word_frequency: bool,
+  },
 }
 
 impl Configuration {
