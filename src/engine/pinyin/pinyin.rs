@@ -1,7 +1,7 @@
 use crate::engine::candidate::Candidate;
 use crate::engine::engine::IMEngine;
 
-struct PinyinEngine {
+pub struct PinyinEngine {
 }
 
 // impl IMEngine for PinyinEngine {

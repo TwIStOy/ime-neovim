@@ -1,7 +1,9 @@
+use crate::path::LocalConfigPath;
 use rmpv::Value;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Configuration {
@@ -17,7 +19,7 @@ pub enum Configuration {
     // AssistCodes filename
     assist_file: Option<String>,
     // fuzzy syllables settings
-    fuzzy_syllables: HashMap<String, String>,
+    fuzzy_syllables: Vec<(String, String)>,
     // character database filename
     character_database: String,
     // word database filename
@@ -28,17 +30,13 @@ pub enum Configuration {
 }
 
 impl Configuration {
-  pub fn new(value: &Value) -> Result<Self, String> {
-    match value.as_str() {
-      Some(v) => {
-        match serde_json::from_str::<Configuration>(v) {
-          Ok(res) => Ok(res),
-          Err(e) => {
-            Err(e.to_string())
-          }
-        }
-      },
-      None => Err("expect json string".to_string()),
-    }
+  pub fn new(filename: &Value) -> Result<Self, String> {
+    let filepath = LocalConfigPath::new().file("config.json");
+    let reader = BufReader::new(File::open(filepath).unwrap());
+
+    let res: Self =
+      serde_json::from_reader(reader).map_err(|_| "failed to read config.json".to_string())?;
+
+    Ok(res)
   }
 }

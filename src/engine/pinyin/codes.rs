@@ -113,3 +113,9 @@ impl From<String> for PinyinCode {
     }
   }
 }
+
+impl From<&String> for PinyinCode {
+  fn from(s: &String) -> PinyinCode {
+    PinyinCode::from(s.to_lowercase())
+  }
+}
