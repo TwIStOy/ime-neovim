@@ -334,11 +334,13 @@ impl PluginManager {
     for ch in keycodes {
       inoremap!(ch, format!("<C-R>=ime#rpc#input_char('{}')<C-M>", ch));
     }
-    inoremap!("<Space>", format!("<C-R>=ime#rpc#confirm(1)<C-M>"));
+    inoremap!("<Space>", format!("<C-R>=ime#rpc#feed_space()<C-M>"));
     inoremap!("<Esc>", format!("<C-o>:call ime#rpc#cancel()<CR>"));
     inoremap!("<BS>", format!("<C-R>=ime#rpc#backspace()<C-M>"));
+    inoremap!(",", format!("<C-R>=ime#rpc#previous_page()<C-M>"));
+    inoremap!(".", format!("<C-R>=ime#rpc#next_page()<C-M>"));
     for i in 1..(CANDIDATE_PER_PAGE + 1) {
-      inoremap!(i, format!("<C-R>=ime#rpc#confirm({})<C-M>", i));
+      inoremap!(i, format!("<C-R>=ime#rpc#feed_number({})<C-M>", i));
     }
 
     Ok(Value::from(true))

@@ -1,6 +1,7 @@
 use crate::data::PersistentTrie;
 use crate::engine::codetable::input_context::{CodeTableContext, ResultText};
 use crate::engine::engine::{IMEngine, InputContext};
+use crate::engine::Configuration;
 use crate::path::LocalDataPath;
 use async_std::sync::Mutex;
 use std::cell::RefCell;
@@ -9,7 +10,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::engine::Configuration;
 
 pub struct CodeTable {
   table: PersistentTrie<char, ResultText>,
@@ -35,7 +35,11 @@ impl IMEngine for CodeTable {
 
 impl CodeTable {
   pub fn new(config: Configuration) -> Option<CodeTable> {
-    if let Configuration::CodeTable{perfect_only, codetable_file} = config {
+    if let Configuration::CodeTable {
+      perfect_only,
+      codetable_file,
+    } = config
+    {
       let mut res = CodeTable::table_file(&codetable_file);
       res.perfect_only = perfect_only;
       Some(res)
@@ -44,7 +48,7 @@ impl CodeTable {
     }
   }
 
-  fn table_file(filename: &str) -> CodeTable {
+  pub fn table_file(filename: &str) -> CodeTable {
     let mut code_table = CodeTable {
       table: PersistentTrie::new(),
       keycodes: HashSet::new(),

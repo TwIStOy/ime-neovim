@@ -68,8 +68,7 @@ endfunction
 
 function! ime#rpc#next_page() abort
   if !exists('b:__ime_context_id')
-    echoerr 'Should start context_id first.'
-    return
+    return '.'
   endif
 
   call ime#rpc#request('next_page', bufnr('%'))
@@ -78,18 +77,33 @@ endfunction
 
 function! ime#rpc#previous_page() abort
   if !exists('b:__ime_context_id')
-    echoerr 'Should start context_id first.'
-    return
+    return ','
   endif
 
   call ime#rpc#request('previous_page', bufnr('%'))
   return ""
 endfunction
 
+function! ime#rpc#feed_space() abort
+  if !exists('b:__ime_context_id')
+    return ' '
+  endif
+
+  return ime#rpc#confirm(1)
+endfunction
+
+function! ime#rpc#feed_number(num) abort
+  if !exists('b:__ime_context_id')
+    return string(a:num)
+  endif
+
+  return ime#rpc#confirm(a:num)
+endfunction
+
 function! ime#rpc#confirm(idx) abort
   if !exists('b:__ime_context_id')
     echoerr 'Should start context_id first.'
-    return
+    return ''
   endif
 
   let txt = ime#rpc#request('confirm', b:__ime_context_id, a:idx, bufnr('%'))
